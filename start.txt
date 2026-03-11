@@ -1,0 +1,98 @@
+===============================================
+    INSTRUCCIONES PARA INICIAR SKYBALANCE
+===============================================
+
+PROYECTO: SkyBalance - Visualizador de Árboles Binarios (AVL y BST)
+
+---
+REQUISITOS PREVIOS
+---
+- Python 3.8 o superior
+- Git (para clonar el repositorio)
+- Un navegador web (Chrome, Firefox, Edge, Safari)
+
+---
+PASOS PARA INICIAR EL PROYECTO
+---
+
+1. CLONAR EL REPOSITORIO
+   git clone https://github.com/SergioEpsilon/ProyectoArboles.git
+   cd ProyectoArboles
+
+2. INSTALAR DEPENDENCIAS DEL BACKEND
+   cd backend
+   pip install -r requirements.txt
+   
+   (Si no existe requirements.txt, instala Flask manualmente:)
+   pip install flask flask-cors
+
+3. INICIAR EL SERVIDOR BACKEND
+   cd backend
+   python app.py
+   
+   El servidor correrá en: http://localhost:5000
+
+4. ABRIR EL FRONTEND EN EL NAVEGADOR
+   - Abre una nueva terminal/pestaña
+   - Ve a la carpeta frontend
+   - Abre el archivo index.html en tu navegador
+   
+   Opción A: Click derecho en index.html > "Open with Live Server" (si tienes la extensión)
+   Opción B: En terminal - python -m http.server 8000
+            Luego accede a: http://localhost:8000
+
+---
+ESTRUCTURA DEL PROYECTO
+---
+backend/
+  - app.py: Servidor Flask principal
+  - models/: Implementación de AVL y BST
+  - services/: Lógica de servicios
+  - structures/: Estructuras auxiliares (Cola, Pila)
+
+frontend/
+  - index.html: Interfaz principal
+  - js/: Lógica de JavaScript
+  - css/: Estilos del proyecto
+
+data/
+  - Archivos JSON con configuraciones
+
+---
+FUNCIONALIDADES PRINCIPALES
+---
+✓ Insertar nodos en árbol AVL
+✓ Insertar nodos en árbol BST
+✓ Visualizar estructura del árbol
+✓ Buscar elementos
+✓ Eliminar nodos
+✓ Ver topología y modo de inserción
+
+---
+SOLUCIÓN DE PROBLEMAS
+---
+
+Puerto 5000 ocupado:
+  python app.py --port 5001
+
+CORS error:
+  Asegúrate de que Flask está iniciado con CORS habilitado
+
+No se visualiza el árbol:
+  Verifica que el servidor backend esté corriendo (Terminal debe mostrar "Running on...")
+
+---
+DESARROLLO
+---
+Para hacer cambios:
+1. Modifica el código
+2. Guarda los archivos
+3. Recarga la página del navegador
+4. Si cambias el backend, reinicia el servidor
+
+---
+CONTACTO/SOPORTE
+---
+Sitio: https://github.com/SergioEpsilon/ProyectoArboles
+
+===============================================
