@@ -190,8 +190,10 @@ class AVL:
     def delete(self, value):
         if self.root is None:
             print("El árbol está vacío.")
-        else:
-            node = self.__search(self.root, value)
+            return
+
+        node = self.__search(self.root, value)
+
         if node is None:
             print(f"El valor {value} no se encuentra en el árbol.")
         else:
@@ -211,6 +213,10 @@ class AVL:
 
     # Metodo que permite eliminar un nodo hoja
     def __deleteLeafNode(self, node):
+        if node == self.root:
+            self.root = None
+            return
+
         if node.getValue() < node.getParent().getValue():
             node.getParent().setLeftChild(None)
         else:
@@ -236,6 +242,9 @@ class AVL:
                 parent.setLeftChild(child)
             else:
                 parent.setRightChild(child)
+        else:
+            # El nodo eliminado era la raíz
+            self.root = child
 
         # Desconectar el nodo eliminado
         node.setParent(None)
@@ -250,7 +259,7 @@ class AVL:
             predecessor = predecessor.getRightChild()
 
         # 2. Copiar el valor del predecesor al nodo a eliminar
-        node.setData(predecessor.getData())
+        node.setValue(predecessor.getValue())
 
         # 3. Eliminar el predecesor (que tiene 0 o 1 hijo)
         if predecessor.getRightChild() is None and predecessor.getLeftChild() is None:
