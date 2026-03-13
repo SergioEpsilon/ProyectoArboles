@@ -7,12 +7,25 @@ Project: SkyBalance tree visualizer (Flask backend + static frontend).
 ## Repository Layout
 - `backend/app.py`: Flask API entrypoint.
 - `backend/models/`: tree models (`avl.py`, `bst.py`, `node.py`).
-- `backend/services/`: service layer (currently sparse/empty).
+- `backend/services/tree_service.py`: JSON load/parse service (`TreeLoadService`).
 - `backend/structures/`: helper data structures.
 - `frontend/index.html`: main UI.
 - `frontend/js/`: frontend scripts (currently mostly empty).
 - `frontend/css/`: styles.
-- `data/`: JSON samples (`ModoTopologia.json`, `ModoInsercion.json`).
+- `data/`: JSON samples (for example `ModoTopología.json`, `ModoInserción.json`).
+
+## Implemented Features Status
+- Requirement 1.1 (JSON initial load): implemented.
+  - Supports topology and insertion modes (auto-detection + optional explicit mode).
+  - Loads AVL and BST in parallel from user-selected JSON.
+  - Provides comparison data and computed properties (`root`, `depth`, `leaves`, `nodes`).
+- Requirement 1.2 (node management behavior): implemented.
+  - Insert, delete, modify, and flight-cancel (remove node + full descendants).
+  - Undo stack (`Ctrl+Z` behavior) with bounded in-memory history.
+  - AVL rebalance is enforced after bulk structural operations.
+- Requirement 1.3 (save/export JSON state): implemented.
+  - Exports full hierarchical tree structure (not flat list).
+  - Includes per-node height, balance factor, business metadata fields, and raw metadata.
 
 ## Environment Baseline
 - Python: 3.8+
@@ -113,6 +126,27 @@ Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/delete -ContentType "a
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/traversal -ContentType "application/json" -Body '{"modo":"AVL","tipo":"inorder"}'
 ```
+4. Load tree from JSON payload:
+```powershell
+$json = Get-Content data/ModoInserción.json -Raw | ConvertFrom-Json
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/load-json -ContentType "application/json" -Body (@{ json_data = $json } | ConvertTo-Json -Depth 25)
+```
+5. Modify node value:
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/modify -ContentType "application/json" -Body '{"old_valor":40,"new_valor":35,"modo":"AVL"}'
+```
+6. Cancel subtree (flight cancel semantics):
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/cancel -ContentType "application/json" -Body '{"valor":30,"modo":"BST"}'
+```
+7. Undo last action:
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/undo -ContentType "application/json" -Body '{"modo":"AVL"}'
+```
+8. Export full hierarchical state:
+```powershell
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/export-json -ContentType "application/json" -Body '{"modo":"AVL"}'
+```
 
 ## Coding Style - General
 - Keep changes minimal and task-focused.
@@ -156,6 +190,8 @@ Current model classes use camelCase getters/setters (`getValue`, `setParent`, et
 - For tree serialization, include only required fields for frontend rendering.
 - If adding flight metadata, ensure backward-compatible defaults.
 - Never hardcode local file paths for JSON input.
+- Export (`/export-json`) must serialize the real hierarchical structure through `left`/`right` links.
+- Do not replace hierarchical export with only flat flight arrays.
 
 ## Frontend Style
 - Use `const`/`let` (avoid `var` in new code).
@@ -169,6 +205,9 @@ Current model classes use camelCase getters/setters (`getValue`, `setParent`, et
 - AVL operations must keep balance after insert/delete.
 - Traversal outputs must remain deterministic and API-compatible.
 - For delete/cancel semantics, document whether descendants are affected.
+- `delete`: removes only one node according to tree delete rules.
+- `cancel`: removes target node and complete descendant subtree.
+- `modify`: equivalent to delete old value + insert new value (same mode).
 
 ## Change Checklist for Agents
 - Code runs locally with backend start command.
@@ -176,6 +215,18 @@ Current model classes use camelCase getters/setters (`getValue`, `setParent`, et
 - Modified endpoints tested with at least one API call.
 - No unrelated files changed.
 - Update this file if new mandatory tools are introduced.
+- If changing undo/export behavior, validate both endpoint response and UI action.
+
+## Current API Endpoints
+- `POST /insert`
+- `POST /delete`
+- `POST /modify`
+- `POST /cancel`
+- `POST /undo`
+- `POST /clear`
+- `POST /traversal`
+- `POST /load-json`
+- `POST /export-json`
 
 ## Cursor / Copilot Rules Status
 Checked paths:

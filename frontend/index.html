@@ -21,10 +21,15 @@
 
     <div>
         <div class="section-label">Operaciones</div>
-        <input type="number" id="val-input" placeholder="Valor entero" onkeydown="if(event.key==='Enter') insert()">
+        <input type="text" id="val-input" placeholder="Valor del vuelo" onkeydown="if(event.key==='Enter') insert()">
+        <input type="text" id="val-new-input" placeholder="Nuevo valor (modificar)" onkeydown="if(event.key==='Enter') modifyNode()">
         <div class="btn-row">
         <button class="btn btn-green" onclick="insert()">＋ Insertar</button>
         <button class="btn btn-red"   onclick="deleteNode()">－ Eliminar</button>
+        <button class="btn btn-ghost" onclick="modifyNode()">✏ Modificar</button>
+        <button class="btn btn-red" onclick="cancelFlight()">✈ Cancelar vuelo</button>
+        <button class="btn btn-ghost" onclick="undoAction()">↩ Deshacer</button>
+        <button class="btn btn-ghost" onclick="exportTreeJson()">⤓ Exportar JSON</button>
         <button class="btn btn-ghost" onclick="clearTree()">Limpiar árbol</button>
         <button class="btn btn-demo"  onclick="loadDemo()">Cargar demo</button>
         </div>
@@ -393,52 +398,200 @@
         clearTree();
     }
 
+    // Parse text input into int/float/string so flights can be numeric or alphanumeric.
+    function parseTreeInput(raw) {
+        if (raw === null || raw === undefined) return null;
+        const text = String(raw).trim();
+        if (!text) return null;
+
+        const numericPattern = /^-?\d+(\.\d+)?$/;
+        if (numericPattern.test(text)) {
+            const asNumber = Number(text);
+            return Number.isNaN(asNumber) ? text : asNumber;
+        }
+        return text;
+    }
+
+    // Normalize backend errors in one place for all mutation requests.
+    async function readResponseOrThrow(response) {
+        const payload = await response.json();
+        if (!response.ok) {
+            throw new Error(payload.error || 'La operación no pudo completarse.');
+        }
+        return payload;
+    }
+
     async function insert() {
-        const v = parseInt(document.getElementById('val-input').value);
-        if (isNaN(v)) return;
+        const v = parseTreeInput(document.getElementById('val-input').value);
+        if (v === null) return;
 
-        const response = await fetch(`${API_BASE}/insert`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ valor: v, modo: mode })
-        });
+        try {
+            const response = await fetch(`${API_BASE}/insert`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valor: v, modo: mode })
+            });
 
-        const data = await response.json();
-        root = data.arbol;
-        document.getElementById('val-input').value = '';
-        addLog(`Insertado: ${v}`, 'ok');
-        render();
+            const data = await readResponseOrThrow(response);
+            root = data.arbol;
+            document.getElementById('val-input').value = '';
+            addLog(`Insertado: ${v}`, 'ok');
+            render();
+        } catch (error) {
+            addLog(`Error al insertar: ${error.message}`, 'err');
+            alert(`Error al insertar: ${error.message}`);
+        }
     }
 
     async function deleteNode() {
-        const v = parseInt(document.getElementById('val-input').value);
-        if (isNaN(v)) return;
+        const v = parseTreeInput(document.getElementById('val-input').value);
+        if (v === null) return;
 
-        const response = await fetch(`${API_BASE}/delete`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ valor: v, modo: mode })
-        });
+        try {
+            const response = await fetch(`${API_BASE}/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valor: v, modo: mode })
+            });
 
-        const data = await response.json();
-        root = data.arbol;
-        document.getElementById('val-input').value = '';
-        addLog(`Eliminado: ${v}`, 'err');
-        render();
+            const data = await readResponseOrThrow(response);
+            root = data.arbol;
+            document.getElementById('val-input').value = '';
+            addLog(`Eliminado: ${v}`, 'err');
+            render();
+        } catch (error) {
+            addLog(`Error al eliminar: ${error.message}`, 'err');
+            alert(`Error al eliminar: ${error.message}`);
+        }
+    }
+
+    async function modifyNode() {
+        const oldValue = parseTreeInput(document.getElementById('val-input').value);
+        const newValue = parseTreeInput(document.getElementById('val-new-input').value);
+        if (oldValue === null || newValue === null) {
+            alert('Debes ingresar valor actual y nuevo valor para modificar.');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/modify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_valor: oldValue, new_valor: newValue, modo: mode })
+            });
+
+            const data = await readResponseOrThrow(response);
+            root = data.arbol;
+            document.getElementById('val-input').value = '';
+            document.getElementById('val-new-input').value = '';
+            addLog(`Modificado: ${oldValue} → ${newValue}`, 'ok');
+            render();
+        } catch (error) {
+            addLog(`Error al modificar: ${error.message}`, 'err');
+            alert(`Error al modificar: ${error.message}`);
+        }
+    }
+
+    async function cancelFlight() {
+        const v = parseTreeInput(document.getElementById('val-input').value);
+        if (v === null) {
+            alert('Debes ingresar el vuelo a cancelar.');
+            return;
+        }
+
+        if (!confirm(`Se eliminará el vuelo ${v} y toda su descendencia. ¿Continuar?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ valor: v, modo: mode })
+            });
+
+            const data = await readResponseOrThrow(response);
+            root = data.arbol;
+            document.getElementById('val-input').value = '';
+            addLog(`Cancelado (subárbol): ${v}`, 'err');
+            render();
+        } catch (error) {
+            addLog(`Error al cancelar: ${error.message}`, 'err');
+            alert(`Error al cancelar: ${error.message}`);
+        }
+    }
+
+    async function undoAction() {
+        try {
+            const response = await fetch(`${API_BASE}/undo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modo: mode })
+            });
+
+            const data = await readResponseOrThrow(response);
+            root = data.arbol;
+            highlighted.clear();
+            pathNodes.clear();
+            activeTrav = '';
+            document.querySelectorAll('.trav-btn').forEach(b => b.classList.remove('active'));
+            addLog(`Deshacer aplicado (${data.undone_action || 'acción previa'})`, 'info');
+            render();
+        } catch (error) {
+            addLog(`No se pudo deshacer: ${error.message}`, 'info');
+        }
+    }
+
+    async function exportTreeJson() {
+        try {
+            const response = await fetch(`${API_BASE}/export-json`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modo: mode })
+            });
+
+            const payload = await readResponseOrThrow(response);
+            const prettyJson = JSON.stringify(payload, null, 2);
+            const blob = new Blob([prettyJson], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+
+            const now = new Date();
+            const stamp = now.toISOString().replace(/[:.]/g, '-');
+            const fileName = `skybalance-tree-export-${mode}-${stamp}.json`;
+
+            // Trigger browser download without leaving the current page.
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+
+            addLog(`Exportado JSON (${mode})`, 'ok');
+        } catch (error) {
+            addLog(`Error al exportar JSON: ${error.message}`, 'err');
+            alert(`Error al exportar JSON: ${error.message}`);
+        }
     }
 
     async function clearTree() {
-        const response = await fetch(`${API_BASE}/clear`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
+        try {
+            const response = await fetch(`${API_BASE}/clear`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
 
-        const data = await response.json();
-        root = null;
-        highlighted.clear(); pathNodes.clear(); activeTrav = '';
-        document.querySelectorAll('.trav-btn').forEach(b => b.classList.remove('active'));
-        addLog('Árbol limpiado', 'info');
-        render();
+            await readResponseOrThrow(response);
+            root = null;
+            highlighted.clear(); pathNodes.clear(); activeTrav = '';
+            document.querySelectorAll('.trav-btn').forEach(b => b.classList.remove('active'));
+            addLog('Árbol limpiado', 'info');
+            render();
+        } catch (error) {
+            addLog(`Error al limpiar árbol: ${error.message}`, 'err');
+            alert(`Error al limpiar árbol: ${error.message}`);
+        }
     }
 
     function loadDemo() {
@@ -454,14 +607,21 @@
     async function runTraversal(type) {
         if (!root) return;
 
-        const response = await fetch(`${API_BASE}/traversal`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ modo: mode, tipo: type })
-        });
+        let res = [];
+        try {
+            const response = await fetch(`${API_BASE}/traversal`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modo: mode, tipo: type })
+            });
 
-        const data = await response.json();
-        const res  = data.resultado;
+            const data = await readResponseOrThrow(response);
+            res = data.resultado;
+        } catch (error) {
+            addLog(`Error en recorrido ${type}: ${error.message}`, 'err');
+            alert(`Error en recorrido ${type}: ${error.message}`);
+            return;
+        }
 
         highlighted = new Set(res);
         pathNodes.clear();
@@ -569,6 +729,15 @@
     }
 
     render();
+
+    // Keyboard shortcut for undo: Ctrl+Z / Cmd+Z.
+    document.addEventListener('keydown', (event) => {
+        const isUndoShortcut = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z';
+        if (!isUndoShortcut) return;
+
+        event.preventDefault();
+        undoAction();
+    });
     </script>
 </body>
 </html>
