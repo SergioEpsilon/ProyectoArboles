@@ -1,238 +1,180 @@
 # AGENTS.md
 
-## Purpose
-This file defines execution commands and coding conventions for coding agents working in this repository.
-Project: SkyBalance tree visualizer (Flask backend + static frontend).
+## Project Overview
+SkyBalance: Flask backend + static frontend tree visualizer (AVL/BST).
 
 ## Repository Layout
-- `backend/app.py`: Flask API entrypoint.
-- `backend/models/`: tree models (`avl.py`, `bst.py`, `node.py`).
-- `backend/services/tree_service.py`: JSON load/parse service (`TreeLoadService`).
-- `backend/structures/`: helper data structures.
-- `frontend/index.html`: main UI.
-- `frontend/js/`: frontend scripts (currently mostly empty).
-- `frontend/css/`: styles.
-- `data/`: JSON samples (for example `ModoTopología.json`, `ModoInserción.json`).
+- `backend/app.py` - Flask API entrypoint
+- `backend/models/` - Tree models (`avl.py`, `bst.py`, `node.py`)
+- `backend/services/` - Business logic (`tree_serializer.py`, `tree_service.py`, `flight_factory.py`)
+- `backend/structures/` - Helper data structures
+- `frontend/index.html` - Main UI
+- `frontend/js/` - Frontend scripts (`main.js`, `api.js`, `render.js`)
+- `data/` - JSON sample files
 
-## Implemented Features Status
-- Requirement 1.1 (JSON initial load): implemented.
-  - Supports topology and insertion modes (auto-detection + optional explicit mode).
-  - Loads AVL and BST in parallel from user-selected JSON.
-  - Provides comparison data and computed properties (`root`, `depth`, `leaves`, `nodes`).
-- Requirement 1.2 (node management behavior): implemented.
-  - Insert, delete, modify, and flight-cancel (remove node + full descendants).
-  - Undo stack (`Ctrl+Z` behavior) with bounded in-memory history.
-  - AVL rebalance is enforced after bulk structural operations.
-- Requirement 1.3 (save/export JSON state): implemented.
-  - Exports full hierarchical tree structure (not flat list).
-  - Includes per-node height, balance factor, business metadata fields, and raw metadata.
-
-## Environment Baseline
+## Environment
 - Python: 3.8+
-- OS: Windows-first development, but keep commands portable when possible.
-- Backend dependencies used in code: `flask`, `flask-cors`.
+- Dependencies: `flask`, `flask-cors`
+- OS: Windows-first (keep commands portable)
 
-## Setup Commands
-1. Create virtual environment:
+## Setup & Run
 ```powershell
+# Setup
 python -m venv .venv
-```
-2. Activate on PowerShell:
-```powershell
 .\.venv\Scripts\Activate.ps1
-```
-3. Install dependencies:
-```powershell
 pip install flask flask-cors
-```
-4. Optional (if requirements file is added later): `pip install -r backend/requirements.txt`
 
-## Run Commands
-1. Start backend API:
-```powershell
-cd backend
-python app.py
-```
-2. Start frontend static server:
-```powershell
-cd frontend
-python -m http.server 8000
-```
-3. Open frontend URL:
-- `http://localhost:8000`
+# Run backend
+cd backend && python app.py
 
-## Build / Compile Commands
-This project is interpreted (no binary build), but syntax checks are required.
+# Run frontend (separate terminal)
+cd frontend && python -m http.server 8000
+```
 
-1. Compile all backend Python files:
+## Build & Lint
 ```powershell
+# Compile all Python files
 Get-ChildItem backend -Recurse -Filter *.py | ForEach-Object { python -m py_compile $_.FullName }
-```
-2. Compile a single Python file:
-```powershell
+
+# Single file
 python -m py_compile backend/app.py
-```
 
-## Lint / Format Commands
-No linter is enforced in-repo yet. Preferred local checks:
-
-1. Basic Python style check (if installed):
-```powershell
+# Lint (if installed)
 python -m flake8 backend
-```
-2. Python formatting (if installed):
-```powershell
 python -m black backend
 ```
-3. If ESLint is introduced, lint `frontend/js` and keep config in repo root.
-If tooling is not installed, do not block delivery.
 
 ## Test Commands
-There are currently no committed test files. Use these commands as standard once tests exist.
-
-1. Run all unittest tests:
 ```powershell
+# Unittest
 python -m unittest discover -s backend -p "test_*.py"
-```
-2. Run a single unittest module:
-```powershell
 python -m unittest backend.tests.test_avl
-```
-3. Run a single unittest test case/method:
-```powershell
 python -m unittest backend.tests.test_avl.TestAVL.test_insert_balances
-```
-4. If pytest is adopted, run all tests:
-```powershell
+
+# Pytest (if adopted)
 python -m pytest
-```
-5. If pytest is adopted, run one test:
-```powershell
 python -m pytest backend/tests/test_avl.py::TestAVL::test_insert_balances
 ```
 
-## API Validation Commands
-Quick smoke checks with PowerShell:
-
-1. Insert node:
+## API Smoke Tests (PowerShell)
 ```powershell
+# Insert
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/insert -ContentType "application/json" -Body '{"valor":10,"modo":"AVL"}'
-```
-2. Delete node:
-```powershell
+
+# Delete
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/delete -ContentType "application/json" -Body '{"valor":10,"modo":"AVL"}'
-```
-3. Traversal:
-```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/traversal -ContentType "application/json" -Body '{"modo":"AVL","tipo":"inorder"}'
-```
-4. Load tree from JSON payload:
-```powershell
-$json = Get-Content data/ModoInserción.json -Raw | ConvertFrom-Json
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/load-json -ContentType "application/json" -Body (@{ json_data = $json } | ConvertTo-Json -Depth 25)
-```
-5. Modify node value:
-```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/modify -ContentType "application/json" -Body '{"old_valor":40,"new_valor":35,"modo":"AVL"}'
-```
-6. Cancel subtree (flight cancel semantics):
-```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/cancel -ContentType "application/json" -Body '{"valor":30,"modo":"BST"}'
-```
-7. Undo last action:
-```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/undo -ContentType "application/json" -Body '{"modo":"AVL"}'
-```
-8. Export full hierarchical state:
-```powershell
+
+# Modify
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/modify -ContentType "application/json" -Body '{"old_valor":40,"new_valor":35,"modo":"AVL","codigo":"NEW","origen":"A","destino":"B"}'
+
+# Export
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/export-json -ContentType "application/json" -Body '{"modo":"AVL"}'
 ```
 
-## Coding Style - General
-- Keep changes minimal and task-focused.
-- Preserve existing architecture unless explicitly refactoring.
-- Avoid dead code and commented-out legacy blocks.
-- Prefer small functions with single responsibility.
+## Python Code Style
 
-## Coding Style - Python
-- Follow PEP 8 for new code.
-- Indentation: 4 spaces.
-- Naming:
-  - `snake_case` for functions/variables.
-  - `PascalCase` for classes.
-  - `UPPER_SNAKE_CASE` for constants.
-- Type hints:
-  - Add type hints for new/modified public methods.
-  - Use `Optional[T]`, `list[T]`, `dict[str, Any]` as appropriate.
-- Docstrings:
-  - Add concise docstrings to public classes/functions.
-- Imports order:
-  1. Standard library
-  2. Third-party
-  3. Local modules
-- Keep one import per line unless tightly related.
+### Naming Conventions
+- `snake_case` - functions, variables, methods
+- `PascalCase` - classes
+- `UPPER_SNAKE_CASE` - constants
 
-## Python Compatibility Rule
-Current model classes use camelCase getters/setters (`getValue`, `setParent`, etc.).
-- Do not rename existing public methods unless the task requires a migration.
-- New internal helper methods should use snake_case.
-- For compatibility layers, prefer wrappers over breaking API changes.
+### Type Hints (Required for New Code)
+```python
+from typing import Optional, Dict, List, Any
 
-## Error Handling
-- Do not use bare `except:`.
-- Catch specific exceptions where possible.
-- In Flask endpoints, return structured JSON errors with HTTP codes.
-- Validate request payloads before operating on trees.
-- Avoid `print` for recoverable errors in API paths; return JSON messages.
+def process_node(node: Optional[Node], data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pass
+```
 
-## Data and Serialization Rules
-- Keep API response shapes stable (`{"arbol": ...}`, `{"resultado": ...}`).
-- For tree serialization, include only required fields for frontend rendering.
-- If adding flight metadata, ensure backward-compatible defaults.
-- Never hardcode local file paths for JSON input.
-- Export (`/export-json`) must serialize the real hierarchical structure through `left`/`right` links.
-- Do not replace hierarchical export with only flat flight arrays.
+### Imports Order
+1. Standard library (`from __future__`, `typing`, etc.)
+2. Third-party (`flask`, `flask_cors`)
+3. Local modules (`from models...`, `from services...`)
 
-## Frontend Style
-- Use `const`/`let` (avoid `var` in new code).
-- Use camelCase for JS identifiers.
-- Keep DOM IDs/classes meaningful and consistent.
-- Move inline script logic from HTML to `frontend/js/*.js` when touching related areas.
-- Keep UI text in Spanish unless task states otherwise.
+One import per line unless tightly related.
+
+### Docstrings
+Use concise docstrings for public classes/functions:
+```python
+class TreeSerializer:
+    """Converts tree nodes to/from dictionaries for frontend, snapshots, and export."""
+```
+
+### Error Handling
+- NEVER use bare `except:` - catch specific exceptions
+- Return structured JSON errors with HTTP codes in Flask
+- Validate request payloads before tree operations
+- Use `try/except` in API endpoints:
+```python
+try:
+    result = process_data(data)
+except ValueError as exc:
+    return jsonify({"error": str(exc)}), 422
+```
+
+### Python Compatibility Rule
+Legacy models use camelCase getters/setters (`getValue`, `setParent`, etc.):
+- Do NOT rename existing public methods
+- New internal helpers use `snake_case`
+- Use wrappers for compatibility, not breaking changes
+
+## JavaScript Code Style
+
+### Naming
+- `camelCase` for all identifiers
+- Meaningful variable/function names
+- DOM IDs: lowercase with hyphens (`flight-modal`, `val-input`)
+
+### Best Practices
+- Use `const`/`let` - never `var` in new code
+- Prefer arrow functions for callbacks
+- Keep DOM manipulation in `render.js`
+- UI text in Spanish unless task specifies otherwise
+
+## Data Serialization Rules
+
+### API Responses (Stable Contracts)
+```json
+{"arbol": {...}}      // Tree for frontend
+{"resultado": [...]}  // Traversal results
+{"error": "..."}     // Error messages
+```
+
+### Export Format (`/export-json`)
+- Must serialize hierarchical structure via `left`/`right` keys
+- Include per-node: `value`, `height`, `balance_factor`, `metadata`
+- Include business fields: `base_price`, `final_price`, `passengers`, `priority`
+
+### Never Hardcode
+- Local file paths for JSON input
+- Assume specific node value ranges
 
 ## Tree Logic Constraints
-- Preserve BST ordering rules strictly.
-- AVL operations must keep balance after insert/delete.
-- Traversal outputs must remain deterministic and API-compatible.
-- For delete/cancel semantics, document whether descendants are affected.
-- `delete`: removes only one node according to tree delete rules.
-- `cancel`: removes target node and complete descendant subtree.
-- `modify`: equivalent to delete old value + insert new value (same mode).
+- BST: strict ordering (left < parent < right)
+- AVL: must maintain balance after insert/delete
+- `delete` - removes single node, follows BST rules
+- `cancel` - removes node + all descendants
+- `modify` - delete old + insert new (same tree mode)
 
-## Change Checklist for Agents
-- Code runs locally with backend start command.
-- Syntax check passes (`py_compile`).
-- Modified endpoints tested with at least one API call.
-- No unrelated files changed.
-- Update this file if new mandatory tools are introduced.
-- If changing undo/export behavior, validate both endpoint response and UI action.
+## Change Checklist (Required)
+- [ ] Code runs with `python app.py`
+- [ ] Syntax check passes (`py_compile`)
+- [ ] At least one API endpoint tested
+- [ ] No unrelated files modified
+- [ ] Frontend export matches tree state
 
 ## Current API Endpoints
-- `POST /insert`
-- `POST /delete`
-- `POST /modify`
-- `POST /cancel`
-- `POST /undo`
-- `POST /clear`
-- `POST /traversal`
-- `POST /load-json`
-- `POST /export-json`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/insert` | Insert flight node |
+| POST | `/delete` | Delete single node |
+| POST | `/modify` | Modify node (delete + insert) |
+| POST | `/cancel` | Remove node + subtree |
+| POST | `/undo` | Revert last action |
+| POST | `/clear` | Clear tree |
+| POST | `/traversal` | Inorder/preorder/postorder |
+| POST | `/load-json` | Load from JSON file |
+| POST | `/export-json` | Export tree to JSON |
 
-## Cursor / Copilot Rules Status
-Checked paths:
-- `.cursor/rules/`
-- `.cursorrules`
-- `.github/copilot-instructions.md`
-
-Current status: no project-level Cursor/Copilot rule files were found.
-If these files are later added, agents must treat them as higher-priority project instructions.
+## Cursor/Copilot Rules
+No project-level rules found. If added later to `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md`, treat as higher-priority instructions.

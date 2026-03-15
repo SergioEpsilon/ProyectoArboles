@@ -31,6 +31,34 @@ class TreeLoadService:
 
         This method is the main entry point used by Flask endpoints.
         """
+        # Detect and unwrap SkyBalance export format automatically.
+        if isinstance(json_data, dict) and "trees" in json_data:
+            trees = json_data["trees"]
+            if isinstance(trees, dict) and "AVL" in trees:
+                avl_root = trees["AVL"].get("root")
+                bst_root = trees.get("BST", {}).get("root")
+                avl_tree = AVL()
+                bst_tree = BST()
+                avl_tree.root = (
+                    cls._build_node_from_topology(avl_root, "value")
+                    if avl_root
+                    else None
+                )
+                bst_tree.root = (
+                    cls._build_node_from_topology(bst_root, "value")
+                    if bst_root
+                    else None
+                )
+                avl_props = cls.compute_tree_properties(avl_tree)
+                bst_props = cls.compute_tree_properties(bst_tree)
+                return {
+                    "avl": avl_tree,
+                    "bst": bst_tree,
+                    "load_mode": "topology",
+                    "detected_key": "value",
+                    "properties": {"avl": avl_props, "bst": bst_props},
+                }
+
         # Detect the load mode when client did not send an explicit one.
         detected_mode = cls.detect_load_mode(json_data, load_mode)
         # Detect the ordering key field from JSON structure when needed.
@@ -83,7 +111,9 @@ class TreeLoadService:
         return "topology"
 
     @classmethod
-    def detect_key_field(cls, json_data: Any, requested_key: Optional[str]) -> Optional[str]:
+    def detect_key_field(
+        cls, json_data: Any, requested_key: Optional[str]
+    ) -> Optional[str]:
         """Detect which JSON field contains the sortable value."""
         # Respect explicit key when provided by the client.
         if isinstance(requested_key, str) and requested_key.strip():
@@ -124,7 +154,9 @@ class TreeLoadService:
         return None
 
     @classmethod
-    def _load_topology_mode(cls, json_data: Any, key_field: Optional[str]) -> Tuple[AVL, BST]:
+    def _load_topology_mode(
+        cls, json_data: Any, key_field: Optional[str]
+    ) -> Tuple[AVL, BST]:
         """Build AVL and BST by respecting parent/child topology from JSON."""
         # Topology mode requires object-like root or primitive root value.
         if json_data is None:
@@ -138,7 +170,9 @@ class TreeLoadService:
         return avl_tree, bst_tree
 
     @classmethod
-    def _load_insertion_mode(cls, json_data: Any, key_field: Optional[str]) -> Tuple[AVL, BST]:
+    def _load_insertion_mode(
+        cls, json_data: Any, key_field: Optional[str]
+    ) -> Tuple[AVL, BST]:
         """Build AVL and BST by inserting values sequentially from JSON list."""
         # Normalize different insertion JSON shapes into one list.
         items = cls._extract_insertion_items(json_data)
@@ -192,7 +226,9 @@ class TreeLoadService:
         raise ValueError("Insertion mode expects a list payload (vuelos/nodes/items).")
 
     @classmethod
-    def _build_node_from_topology(cls, node_data: Any, key_field: Optional[str]) -> Optional[Node]:
+    def _build_node_from_topology(
+        cls, node_data: Any, key_field: Optional[str]
+    ) -> Optional[Node]:
         """Recursively rebuild a tree node while preserving JSON topology."""
         # Preserve explicit null children from JSON topology.
         if node_data is None:
@@ -211,14 +247,18 @@ class TreeLoadService:
 
         # Build left subtree recursively and wire parent reference.
         if left_key is not None:
-            left_child = cls._build_node_from_topology(node_data.get(left_key), key_field)
+            left_child = cls._build_node_from_topology(
+                node_data.get(left_key), key_field
+            )
             node.setLeftChild(left_child)
             if left_child is not None:
                 left_child.setParent(node)
 
         # Build right subtree recursively and wire parent reference.
         if right_key is not None:
-            right_child = cls._build_node_from_topology(node_data.get(right_key), key_field)
+            right_child = cls._build_node_from_topology(
+                node_data.get(right_key), key_field
+            )
             node.setRightChild(right_child)
             if right_child is not None:
                 right_child.setParent(node)
@@ -252,7 +292,9 @@ class TreeLoadService:
         )
 
     @classmethod
-    def _find_existing_key(cls, payload: Any, candidates: Tuple[str, ...]) -> Optional[str]:
+    def _find_existing_key(
+        cls, payload: Any, candidates: Tuple[str, ...]
+    ) -> Optional[str]:
         """Return the first matching key from candidate names."""
         # Non-dictionary payload cannot contain child keys.
         if not isinstance(payload, dict):
@@ -323,7 +365,11 @@ class TreeLoadService:
             return 0
 
         # Count current node plus both child subtrees.
-        return 1 + cls._count_nodes(node.getLeftChild()) + cls._count_nodes(node.getRightChild())
+        return (
+            1
+            + cls._count_nodes(node.getLeftChild())
+            + cls._count_nodes(node.getRightChild())
+        )
 
     @classmethod
     def _count_leaves(cls, node: Optional[Node]) -> int:
@@ -337,4 +383,6 @@ class TreeLoadService:
             return 1
 
         # Sum leaves from both child subtrees.
-        return cls._count_leaves(node.getLeftChild()) + cls._count_leaves(node.getRightChild())
+        return cls._count_leaves(node.getLeftChild()) + cls._count_leaves(
+            node.getRightChild()
+        )
