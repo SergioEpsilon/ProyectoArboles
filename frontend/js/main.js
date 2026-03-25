@@ -7,6 +7,8 @@ let mode        = 'BST';
 let highlighted = new Set();
 let pathNodes   = new Set();
 let activeTrav  = '';
+let queueCursor = 1;
+let queueProcessing = false;
 
 // Tracks whether the flight modal is in 'insert' or 'modify' mode.
 let flightModalMode = 'insert';
@@ -29,6 +31,10 @@ function clearTraversalState() {
     pathNodes.clear();
     activeTrav = '';
     document.querySelectorAll('.trav-btn').forEach(b => b.classList.remove('active'));
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /** Reset all flight modal fields to empty/default. */
@@ -70,6 +76,7 @@ function setMode(m) {
     document.getElementById('btn-bst').classList.toggle('active', m === 'BST');
     document.getElementById('btn-avl').classList.toggle('active', m === 'AVL');
     clearTree();
+    loadQueueState();
 }
 
 // ─── FLIGHT MODAL ────────────────────────────────────────────────────────────
@@ -325,8 +332,121 @@ async function restoreVersion() {
     }
 }
 
+// ─── CONCURRENCY SIMULATION QUEUE ───────────────────────────────────────────
+function getFlowSlots() {
+    const raw = parseInt(document.getElementById('queue-flows-input').value, 10);
+    if (Number.isNaN(raw)) return 1;
+    return Math.max(1, Math.min(raw, 50));
+}
+
+function nextFlowId(slotCount) {
+    const id = queueCursor;
+    queueCursor = (queueCursor % slotCount) + 1;
+    return id;
+}
+
+function renderQueuePreview(items) {
+    const container = document.getElementById('queue-preview');
+    if (!items || items.length === 0) {
+        container.textContent = 'Sin solicitudes pendientes.';
+        return;
+    }
+
+    const lines = items.map((item, index) => {
+        const flow = item.flow_id || 1;
+        return `${index + 1}. [F${flow}] ${item.valor}`;
+    });
+    container.textContent = lines.join('\n');
+}
+
+async function loadQueueState() {
+    try {
+        const data = await apiQueueList(mode);
+        renderQueuePreview(data.items || []);
+    } catch (_) {}
+}
+
+async function scheduleInsertion() {
+    const value = parseTreeInput(document.getElementById('queue-value-input').value);
+    if (value === null) {
+        alert('Ingresa un código para programar.');
+        return;
+    }
+
+    const slotCount = getFlowSlots();
+    const flowId = nextFlowId(slotCount);
+
+    try {
+        await apiQueueEnqueue(value, mode, flowId);
+        document.getElementById('queue-value-input').value = '';
+        await loadQueueState();
+        addLog(`Programado: ${value} (flujo F${flowId})`, 'info');
+    } catch (e) {
+        addLog(`Error al programar inserción: ${e.message}`, 'err');
+        alert(`Error al programar inserción: ${e.message}`);
+    }
+}
+
+async function processInsertionQueue() {
+    if (queueProcessing) return;
+
+    try {
+        queueProcessing = true;
+        const slotCount = getFlowSlots();
+        const data = await apiQueueProcess(mode, slotCount);
+        const steps = data.processed || [];
+
+        if (steps.length === 0) {
+            addLog('No hay solicitudes pendientes en cola.', 'info');
+            return;
+        }
+
+        for (const step of steps) {
+            root = step.arbol || null;
+            clearTraversalState();
+            render();
+
+            if (step.duplicate) {
+                addLog(
+                    `C${step.cycle}/F${step.flow_id}: ${step.value} omitido (duplicado).`,
+                    'info'
+                );
+            } else {
+                const conflictLabel = step.critical_balance ? 'CONFLICTO CRÍTICO' : 'estable';
+                const level = step.critical_balance ? 'err' : 'ok';
+                addLog(
+                    `C${step.cycle}/F${step.flow_id}: insertado ${step.value} | BF raíz=${step.root_balance} | ${conflictLabel}`,
+                    level
+                );
+            }
+
+            await sleep(650);
+        }
+
+        await loadQueueState();
+    } catch (e) {
+        addLog(`Error al procesar cola: ${e.message}`, 'err');
+        alert(`Error al procesar cola: ${e.message}`);
+    } finally {
+        queueProcessing = false;
+    }
+}
+
+async function resetAnalytics() {
+    try {
+        await apiMetricsReset();
+        render();
+        addLog('Contadores de analíticas reseteados.', 'ok');
+    } catch (e) {
+        addLog(`Error al resetear analíticas: ${e.message}`, 'err');
+        alert(`Error al resetear analíticas: ${e.message}`);
+    }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 render();
+loadVersionList();
+loadQueueState();
 
 document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {

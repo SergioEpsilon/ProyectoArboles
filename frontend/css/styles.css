@@ -286,3 +286,16 @@ button.btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
 .log-ok    { color: #3fb950; }
 .log-err   { color: #f87171; }
 .log-info  { color: #8b949e; }
+
+.queue-preview {
+    border: 1px solid #21262d;
+    background: #0d1117;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 11px;
+    color: #8b949e;
+    line-height: 1.4;
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-line;
+}

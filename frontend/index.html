@@ -159,6 +159,20 @@
             <button class="btn btn-ghost-full" onclick="restoreVersion()">↺ Restaurar versión</button>
         </div>
 
+        <!-- SIMULACIÓN DE CONCURRENCIA -->
+        <div class="section">
+            <div class="section-label">Simulación de concurrencia</div>
+            <input type="text" id="queue-value-input" placeholder="Código a programar"
+                onkeydown="if(event.key==='Enter') scheduleInsertion()">
+            <input type="number" id="queue-flows-input" min="1" max="50" value="3" placeholder="N flujos paralelos">
+            <div class="btn-grid">
+                <button class="btn btn-green" onclick="scheduleInsertion()">＋ Programar</button>
+                <button class="btn btn-ghost" onclick="loadQueueState()">↻ Ver cola</button>
+                <button class="btn btn-demo-full" onclick="processInsertionQueue()">▶ Procesar cola</button>
+            </div>
+            <div id="queue-preview" class="queue-preview">Sin solicitudes pendientes.</div>
+        </div>
+
         <!-- RECORRIDOS -->
         <div class="section">
             <div class="section-label">Recorridos</div>
@@ -168,14 +182,19 @@
             <button class="trav-btn" id="t-level"     onclick="runTraversal('level')">Por Niveles (BFS)</button>
         </div>
 
-        <!-- ESTADÍSTICAS (visible solo cuando hay árbol) -->
+        <!-- ANALÍTICAS (visible solo cuando hay árbol) -->
         <div id="stats" style="display:none">
-            <div class="section-label">Estadísticas</div>
+            <div class="section-label">Analíticas</div>
             <div class="stat-row"><span>Nodos</span>        <span id="s-nodes">0</span></div>
+            <div class="stat-row"><span>Hojas</span>        <span id="s-leaves">0</span></div>
             <div class="stat-row"><span>Altura</span>       <span id="s-height">0</span></div>
             <div class="stat-row"><span>Balance raíz</span> <span id="s-bf">0</span></div>
-            <div class="stat-row"><span>Mínimo</span>       <span id="s-min">—</span></div>
-            <div class="stat-row"><span>Máximo</span>       <span id="s-max">—</span></div>
+            <div class="stat-row"><span>Rotaciones (LL)</span> <span id="s-rot-ll">0</span></div>
+            <div class="stat-row"><span>Rotaciones (LR)</span> <span id="s-rot-lr">0</span></div>
+            <div class="stat-row"><span>Rotaciones (RR)</span> <span id="s-rot-rr">0</span></div>
+            <div class="stat-row"><span>Rotaciones (RL)</span> <span id="s-rot-rl">0</span></div>
+            <div class="stat-row"><span>Cancelaciones</span> <span id="s-cancel">0</span></div>
+            <button class="btn btn-ghost-full" onclick="resetAnalytics()">↻ Reset</button>
         </div>
     </div>
 

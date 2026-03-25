@@ -10,17 +10,21 @@ from services.version_service import VersionService
 from services.history_service import HistoryService
 from services.tree_serializer import TreeSerializer
 from services.flight_factory import FlightFactory
+from services.queue_persistence_service import QueuePersistenceService
+from services.metrics_service import MetricsService
 
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
 
 # ── In-memory state ───────────────────────────────────────────────────────────
-avl_tree = AVL()
-bst_tree = BST()
-
 # Services (each with a single responsibility).
+metrics_service = MetricsService()
 history_service = HistoryService(max_size=50)
 version_service = VersionService()
+queue_persistence_service = QueuePersistenceService()
+
+avl_tree = AVL(metrics_service=metrics_service)
+bst_tree = BST()
 
 
 # ── Convenience aliases ───────────────────────────────────────────────────────
@@ -33,6 +37,8 @@ def _restore(state):
     """Restore both trees from a snapshot."""
     global avl_tree, bst_tree
     avl_tree, bst_tree = TreeSerializer.restore_state(state)
+    # Re-wire metrics service to new AVL instance.
+    avl_tree._metrics = metrics_service
 
 
 def _rebalance():
@@ -44,6 +50,28 @@ def _rebalance():
 def _to_dict(tree):
     """Serialize a tree root to a frontend-ready dict."""
     return TreeSerializer.to_dict(tree.root, tree)
+
+
+def _root_balance(modo):
+    """Compute root balance factor for conflict detection in queue simulation."""
+    tree = avl_tree if modo == "AVL" else bst_tree
+    if tree.root is None:
+        return 0
+
+    if modo == "AVL":
+        return avl_tree.getBalanceFactor(avl_tree.root)
+
+    left = tree.getHeightNode(tree.root.getLeftChild())
+    right = tree.getHeightNode(tree.root.getRightChild())
+    return left - right
+
+
+def _contains_value(tree, value):
+    """Safely check if a value already exists in a tree."""
+    try:
+        return tree.search(value) is not None
+    except Exception:
+        return False
 
 
 # ── Static route ──────────────────────────────────────────────────────────────
@@ -88,7 +116,8 @@ def insert():
 def clear():
     global avl_tree, bst_tree
     history_service.push("clear-all", _snap())
-    avl_tree = AVL()
+    metrics_service.reset_counters()
+    avl_tree = AVL(metrics_service=metrics_service)
     bst_tree = BST()
     return jsonify({"arbol": None})
 
@@ -189,6 +218,7 @@ def cancel_flight_subtree():
         )
 
     history_service.push(f"cancel-{modo.lower()}", _snap())
+    metrics_service.record_cancellation()
     parent = target.getParent()
     if parent is None:
         tree.root = None
@@ -362,6 +392,173 @@ def restore_version():
     modo = data.get("modo", "AVL")
     return jsonify(
         {"arbol": _to_dict(bst_tree if modo == "BST" else avl_tree), "name": name}
+    )
+
+
+# ── Metrics endpoints (Point 4: Real-time Analytics) ─────────────────────────
+@app.route("/metrics", methods=["GET"])
+def get_metrics():
+    """Return real-time metrics for current tree state."""
+    modo = request.args.get("modo", "AVL")
+    if modo not in {"AVL", "BST"}:
+        return jsonify({"error": "El campo 'modo' debe ser 'AVL' o 'BST'"}), 400
+
+    tree = avl_tree if modo == "AVL" else bst_tree
+    structural_metrics = MetricsService.all_metrics(tree)
+    rotation_stats = metrics_service.get_rotation_stats()
+    cancellation_count = metrics_service.get_cancellation_count()
+
+    return jsonify(
+        {
+            "modo": modo,
+            "structural": structural_metrics,
+            "rotations": rotation_stats,
+            "total_rotations": sum(rotation_stats.values()),
+            "cancellations": cancellation_count,
+        }
+    )
+
+
+@app.route("/metrics/reset", methods=["POST"])
+def reset_metrics():
+    """Reset all metric counters (rotations, cancellations)."""
+    metrics_service.reset_counters()
+    return jsonify({"ok": True, "message": "Metrics counters reset."})
+
+
+# ── Concurrency Simulation endpoints (Point 3) ───────────────────────────────
+@app.route("/queue/enqueue", methods=["POST"])
+def enqueue_insertion_request():
+    """Schedule one insertion request into the pending queue."""
+    data = request.get_json(silent=True) or {}
+    valor = data.get("valor")
+    modo = data.get("modo")
+
+    if valor is None:
+        return (
+            jsonify({"error": "El campo 'valor' es requerido y no puede ser null"}),
+            400,
+        )
+    if modo not in {"AVL", "BST"}:
+        return jsonify({"error": "El campo 'modo' debe ser 'AVL' o 'BST'"}), 400
+
+    flow_id = int(data.get("flow_id") or 1)
+    metadata = FlightFactory.build(data, valor)
+    queue_item = {
+        "valor": valor,
+        "flow_id": flow_id,
+        "metadata": metadata,
+        "requested_at": datetime.now(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
+    }
+    queue_persistence_service.enqueue(modo, queue_item)
+    queue = queue_persistence_service.get_queue(modo)
+
+    return jsonify(
+        {
+            "ok": True,
+            "modo": modo,
+            "queued": queue.size(),
+            "items": queue.to_list(),
+        }
+    )
+
+
+@app.route("/queue/list", methods=["GET"])
+def list_pending_insertions():
+    """Return all pending insertion requests for the selected tree mode."""
+    modo = request.args.get("modo", "AVL")
+    if modo not in {"AVL", "BST"}:
+        return jsonify({"error": "El campo 'modo' debe ser 'AVL' o 'BST'"}), 400
+
+    queue = queue_persistence_service.get_queue(modo)
+    return jsonify({"modo": modo, "queued": queue.size(), "items": queue.to_list()})
+
+
+@app.route("/queue/process", methods=["POST"])
+def process_pending_insertions():
+    """Process queued insertions in FIFO order while simulating N flow slots."""
+    data = request.get_json(silent=True) or {}
+    modo = data.get("modo")
+    if modo not in {"AVL", "BST"}:
+        return jsonify({"error": "El campo 'modo' debe ser 'AVL' o 'BST'"}), 400
+
+    try:
+        flow_slots = int(data.get("flow_slots", 1))
+    except (TypeError, ValueError):
+        flow_slots = 1
+    flow_slots = max(1, min(flow_slots, 50))
+
+    try:
+        max_requests = int(data.get("max_requests", 200))
+    except (TypeError, ValueError):
+        max_requests = 200
+    max_requests = max(1, min(max_requests, 2000))
+
+    queue = queue_persistence_service.get_queue(modo)
+    if queue.is_empty():
+        return jsonify(
+            {
+                "ok": True,
+                "modo": modo,
+                "processed": [],
+                "remaining": 0,
+                "message": "No hay solicitudes pendientes.",
+            }
+        )
+
+    history_service.push(f"process-queue-{modo.lower()}", _snap())
+
+    tree = avl_tree if modo == "AVL" else bst_tree
+    processed = []
+    cycle = 1
+
+    while (not queue.is_empty()) and len(processed) < max_requests:
+        for slot in range(1, flow_slots + 1):
+            if queue.is_empty() or len(processed) >= max_requests:
+                break
+
+            request_item = queue_persistence_service.dequeue(modo)
+            if request_item is None:
+                break
+
+            value = request_item.get("valor")
+            flow_id = request_item.get("flow_id", slot)
+            duplicate = _contains_value(tree, value)
+
+            if not duplicate:
+                metadata = request_item.get("metadata") or FlightFactory.build({}, value)
+                tree.insert(Node(value, metadata))
+                if modo == "AVL":
+                    _rebalance()
+
+            balance = _root_balance(modo)
+            critical_balance = abs(balance) >= 2
+            processed.append(
+                {
+                    "value": value,
+                    "flow_id": flow_id,
+                    "cycle": cycle,
+                    "slot": slot,
+                    "duplicate": duplicate,
+                    "critical_balance": critical_balance,
+                    "root_balance": balance,
+                    "remaining": queue.size(),
+                    "arbol": _to_dict(tree),
+                }
+            )
+
+        cycle += 1
+
+    return jsonify(
+        {
+            "ok": True,
+            "modo": modo,
+            "flow_slots": flow_slots,
+            "processed": processed,
+            "remaining": queue.size(),
+        }
     )
 
 

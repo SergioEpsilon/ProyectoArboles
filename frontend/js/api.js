@@ -34,3 +34,25 @@ async function apiVersionList() {
     const res = await fetch(`${API_BASE}/version/list`);
     return readResponseOrThrow(res);
 }
+
+async function apiQueueEnqueue(valor, modo, flow_id) {
+    return readResponseOrThrow(await postJSON('/queue/enqueue', { valor, modo, flow_id }));
+}
+
+async function apiQueueList(modo) {
+    const res = await fetch(`${API_BASE}/queue/list?modo=${encodeURIComponent(modo)}`);
+    return readResponseOrThrow(res);
+}
+
+async function apiQueueProcess(modo, flow_slots) {
+    return readResponseOrThrow(await postJSON('/queue/process', { modo, flow_slots }));
+}
+
+async function apiMetrics(modo) {
+    const res = await fetch(`${API_BASE}/metrics?modo=${encodeURIComponent(modo)}`);
+    return readResponseOrThrow(res);
+}
+
+async function apiMetricsReset() {
+    return readResponseOrThrow(await postJSON('/metrics/reset', {}));
+}

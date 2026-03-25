@@ -126,21 +126,35 @@ function render() {
 }
 
 function renderStats() {
+    // Compute local tree stats for compatibility.
     function inorder(n, a = []) { if (!n) return a; inorder(n.left, a); a.push(n.val); inorder(n.right, a); return a; }
     const nodes = inorder(root);
     document.getElementById('s-nodes').textContent  = nodes.length;
     document.getElementById('s-height').textContent = ht(root);
     document.getElementById('s-bf').textContent     = bf(root);
-
-    const isNumeric = nodes.every(n => typeof n === 'number');
-    if (isNumeric) {
-        document.getElementById('s-min').textContent = Math.min(...nodes);
-        document.getElementById('s-max').textContent = Math.max(...nodes);
-    } else {
-        const sorted = nodes.map(n => String(n)).sort((a, b) => a.localeCompare(b));
-        document.getElementById('s-min').textContent = sorted[0] || '—';
-        document.getElementById('s-max').textContent = sorted[sorted.length - 1] || '—';
+    
+    // Count leaves locally.
+    function countLeaves(n) { 
+        if (!n) return 0; 
+        if (!n.left && !n.right) return 1;
+        return countLeaves(n.left) + countLeaves(n.right);
     }
+    document.getElementById('s-leaves').textContent = countLeaves(root);
+
+    // Load server metrics asynchronously (rotations, cancellations).
+    loadServerMetrics();
+}
+
+async function loadServerMetrics() {
+    try {
+        const data = await apiMetrics(mode);
+        const rot = data.rotations || {};
+        document.getElementById('s-rot-ll').textContent = rot.LL || 0;
+        document.getElementById('s-rot-lr').textContent = rot.LR || 0;
+        document.getElementById('s-rot-rr').textContent = rot.RR || 0;
+        document.getElementById('s-rot-rl').textContent = rot.RL || 0;
+        document.getElementById('s-cancel').textContent = data.cancellations || 0;
+    } catch (_) {}
 }
 
 // ─── RESULT BAR ──────────────────────────────────────────────────────────────

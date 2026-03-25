@@ -1,0 +1,59 @@
+{
+  "saved_at": "2026-03-25T04:01:47.693887Z",
+  "queues": {
+    "AVL": [],
+    "BST": [
+      {
+        "valor": 10,
+        "flow_id": 1,
+        "metadata": {
+          "codigo": 10,
+          "origen": "",
+          "destino": "",
+          "horaSalida": "",
+          "precioBase": 0,
+          "precioFinal": 0,
+          "pasajeros": 0,
+          "prioridad": 1,
+          "promocion": false,
+          "alerta": false
+        },
+        "requested_at": "2026-03-25T04:01:47.667380Z"
+      },
+      {
+        "valor": 20,
+        "flow_id": 1,
+        "metadata": {
+          "codigo": 20,
+          "origen": "",
+          "destino": "",
+          "horaSalida": "",
+          "precioBase": 0,
+          "precioFinal": 0,
+          "pasajeros": 0,
+          "prioridad": 1,
+          "promocion": false,
+          "alerta": false
+        },
+        "requested_at": "2026-03-25T04:01:47.681576Z"
+      },
+      {
+        "valor": 30,
+        "flow_id": 1,
+        "metadata": {
+          "codigo": 30,
+          "origen": "",
+          "destino": "",
+          "horaSalida": "",
+          "precioBase": 0,
+          "precioFinal": 0,
+          "pasajeros": 0,
+          "prioridad": 1,
+          "promocion": false,
+          "alerta": false
+        },
+        "requested_at": "2026-03-25T04:01:47.692490Z"
+      }
+    ]
+  }
+}

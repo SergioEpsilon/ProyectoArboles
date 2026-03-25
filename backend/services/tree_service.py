@@ -21,6 +21,28 @@ class TreeLoadService:
     RIGHT_KEYS = ("derecho", "right", "der", "rightChild")
 
     @classmethod
+    def _build_trees_from_roots(
+        cls,
+        avl_root_data: Any,
+        bst_root_data: Any,
+        key_field: Optional[str],
+    ) -> Tuple[AVL, BST]:
+        """Build AVL and BST instances from topology root payloads."""
+        avl_tree = AVL()
+        bst_tree = BST()
+        avl_tree.root = (
+            cls._build_node_from_topology(avl_root_data, key_field)
+            if avl_root_data is not None
+            else None
+        )
+        bst_tree.root = (
+            cls._build_node_from_topology(bst_root_data, key_field)
+            if bst_root_data is not None
+            else None
+        )
+        return avl_tree, bst_tree
+
+    @classmethod
     def load_both_trees(
         cls,
         json_data: Any,
@@ -37,17 +59,8 @@ class TreeLoadService:
             if isinstance(trees, dict) and "AVL" in trees:
                 avl_root = trees["AVL"].get("root")
                 bst_root = trees.get("BST", {}).get("root")
-                avl_tree = AVL()
-                bst_tree = BST()
-                avl_tree.root = (
-                    cls._build_node_from_topology(avl_root, "value")
-                    if avl_root
-                    else None
-                )
-                bst_tree.root = (
-                    cls._build_node_from_topology(bst_root, "value")
-                    if bst_root
-                    else None
+                avl_tree, bst_tree = cls._build_trees_from_roots(
+                    avl_root, bst_root, "value"
                 )
                 avl_props = cls.compute_tree_properties(avl_tree)
                 bst_props = cls.compute_tree_properties(bst_tree)
@@ -163,11 +176,7 @@ class TreeLoadService:
             raise ValueError("Topology mode received empty JSON content.")
 
         # Create both trees and attach reconstructed roots independently.
-        avl_tree = AVL()
-        bst_tree = BST()
-        avl_tree.root = cls._build_node_from_topology(json_data, key_field)
-        bst_tree.root = cls._build_node_from_topology(json_data, key_field)
-        return avl_tree, bst_tree
+        return cls._build_trees_from_roots(json_data, json_data, key_field)
 
     @classmethod
     def _load_insertion_mode(
@@ -209,14 +218,10 @@ class TreeLoadService:
     def _extract_insertion_items(cls, json_data: Any) -> List[Any]:
         """Return insertion list from known JSON wrappers or direct list payload."""
         # Handle the common wrapper format: { "vuelos": [...] }.
-        if isinstance(json_data, dict) and isinstance(json_data.get("vuelos"), list):
-            return json_data["vuelos"]
-
-        # Handle generic wrappers that may appear in custom datasets.
-        if isinstance(json_data, dict) and isinstance(json_data.get("nodes"), list):
-            return json_data["nodes"]
-        if isinstance(json_data, dict) and isinstance(json_data.get("items"), list):
-            return json_data["items"]
+        if isinstance(json_data, dict):
+            for key in ("vuelos", "nodes", "items"):
+                if isinstance(json_data.get(key), list):
+                    return json_data[key]
 
         # Handle direct list payload sent by frontend.
         if isinstance(json_data, list):
@@ -346,9 +351,8 @@ class TreeLoadService:
         # Use model height helper as depth metric (root depth of leaf = 0).
         depth = tree.getHeightNode(tree.root)
 
-        # Traverse recursively to compute global counts.
-        nodes = cls._count_nodes(tree.root)
-        leaves = cls._count_leaves(tree.root)
+        # Traverse once to compute global counts.
+        nodes, leaves = cls._count_nodes_and_leaves(tree.root)
 
         return {
             "root": tree.root.getValue(),
@@ -358,31 +362,15 @@ class TreeLoadService:
         }
 
     @classmethod
-    def _count_nodes(cls, node: Optional[Node]) -> int:
-        """Count total nodes recursively."""
-        # Empty subtree contributes zero nodes.
+    def _count_nodes_and_leaves(cls, node: Optional[Node]) -> Tuple[int, int]:
+        """Count total nodes and leaves in a single recursive traversal."""
         if node is None:
-            return 0
+            return 0, 0
 
-        # Count current node plus both child subtrees.
-        return (
-            1
-            + cls._count_nodes(node.getLeftChild())
-            + cls._count_nodes(node.getRightChild())
-        )
+        left_nodes, left_leaves = cls._count_nodes_and_leaves(node.getLeftChild())
+        right_nodes, right_leaves = cls._count_nodes_and_leaves(node.getRightChild())
 
-    @classmethod
-    def _count_leaves(cls, node: Optional[Node]) -> int:
-        """Count leaf nodes recursively."""
-        # Empty subtree contributes zero leaves.
-        if node is None:
-            return 0
-
-        # A leaf has no children.
-        if node.getLeftChild() is None and node.getRightChild() is None:
-            return 1
-
-        # Sum leaves from both child subtrees.
-        return cls._count_leaves(node.getLeftChild()) + cls._count_leaves(
-            node.getRightChild()
-        )
+        is_leaf = node.getLeftChild() is None and node.getRightChild() is None
+        total_nodes = 1 + left_nodes + right_nodes
+        total_leaves = (1 if is_leaf else 0) + left_leaves + right_leaves
+        return total_nodes, total_leaves
