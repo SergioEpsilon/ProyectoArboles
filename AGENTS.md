@@ -1,17 +1,18 @@
 # AGENTS.md
 
 ## Project Overview
-SkyBalance: Flask backend + static frontend tree visualizer (AVL/BST).
+SkyBalance: Flask backend + static frontend tree visualizer (AVL/BST) with critical depth penalties and stress testing.
 
 ## Repository Layout
-- `backend/app.py` - Flask API entrypoint
+- `backend/app.py` - Flask API entrypoint (single tree instances, in-memory state)
 - `backend/models/` - Tree models (`base_tree.py`, `avl.py`, `bst.py`, `node.py`, `tree_printer.py`)
-- `backend/services/` - Business logic (`tree_serializer.py`, `tree_service.py`, `flight_factory.py`, `history_service.py`, `version_service.py`, `queue_persistence_service.py`, `metrics_service.py`)
-- `backend/structures/` - Helper data structures
+- `backend/services/` - Business logic (8 services: tree_serializer, tree_service, flight_factory, history, version, queue_persistence, metrics, depth_penalty)
+- `backend/routes/` - Flask Blueprints (`depth_routes.py`, `stress_routes.py`)
+- `backend/structures/` - Helper data structures (`cola.py`, `pila.py`)
 - `backend/tests/` - Unit tests (`test_tree_models.py`, `test_tree_service.py`)
-- `frontend/index.html` - Main UI
-- `frontend/js/` - Frontend scripts (`main.js`, `api.js`, `render.js`)
-- `data/` - JSON sample + persistence files (`saved_versions.json`, `pending_queue.json`)
+- `test_*.py` (root) - Integration/API tests (`test_metrics.py`, `test_rotations.py`) - run against live backend
+- `frontend/` - Static UI (HTML/CSS/JS) with grid visualization
+- `data/` - JSON configs + persistence files
 
 ## Environment
 - Python: 3.8+
@@ -46,15 +47,33 @@ python -m black backend
 ```
 
 ## Test Commands
+
+### Unit Tests (in `backend/tests/`)
 ```powershell
-# Unittest
+# All unit tests
 python -m unittest discover -s backend/tests -p "test_*.py"
+
+# Single test file
 python -m unittest backend.tests.test_tree_models
 python -m unittest backend.tests.test_tree_service
 
-# Pytest (if adopted)
-python -m pytest
-python -m pytest backend/tests/test_tree_models.py::TestAVL::test_ll_rotation_balances_tree
+# Single test case (requires live backend)
+python -m unittest backend.tests.test_tree_models.TestAVL.test_ll_rotation_balances_tree
+```
+
+### Integration Tests (root level - requires backend running on port 5000)
+```powershell
+# Start backend first in separate terminal:
+cd backend; python app.py
+
+# Then run integration tests:
+python test_metrics.py           # Test metrics tracking after inserts
+python test_rotations.py         # Test AVL rotation scenarios
+```
+
+### Quick Compile Check (all Python files)
+```powershell
+Get-ChildItem backend -Recurse -Filter *.py | ForEach-Object { python -m py_compile $_.FullName }
 ```
 
 ## API Smoke Tests (PowerShell)
@@ -204,6 +223,12 @@ Legacy models use camelCase getters/setters (`getValue`, `setParent`, etc.):
 | POST | `/queue/process` | Process queued insertions |
 | GET  | `/metrics` | Read real-time analytics |
 | POST | `/metrics/reset` | Reset analytics counters |
+| GET  | `/depth-limit/get` | Get critical depth threshold |
+| POST | `/depth-limit/set` | Set depth threshold + apply penalties |
+| GET  | `/stress/status` | Get stress test status |
+| POST | `/stress/enable` | Enable random stress testing |
+| POST | `/stress/disable` | Disable stress testing |
+| POST | `/stress/rebalance` | Force AVL rebalancing |
 
 ## Cursor/Copilot Rules
-No project-level rules found. If added later to `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md`, treat as higher-priority instructions.
+No project-level rules found (check `.cursor/rules/`, `.cursorrules`, or `.github/copilot-instructions.md` if added).
