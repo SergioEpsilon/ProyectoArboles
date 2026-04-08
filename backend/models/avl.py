@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from models.base_tree import BaseTree
 from models.tree_printer import print_ascii_tree
+from services.stress_service import StressService
 
 if TYPE_CHECKING:
     from services.metrics_service import MetricsService
@@ -35,6 +36,9 @@ class AVL(BaseTree):
 
     # Hook de BaseTree: balancea despues de insertar en el padre inmediato
     def _post_insert(self, node) -> None:
+        # Stress mode: skip automatic balancing so the tree can degrade visually
+        if StressService.instance().is_active():
+            return
         self.checkBalance(node)
 
     # Metodo para checar el balanceo de un arbol a partir de un nodo
@@ -128,6 +132,56 @@ class AVL(BaseTree):
         left_height = self.__getHeightNode(node.getLeftChild())
         right_height = self.__getHeightNode(node.getRightChild())
         return left_height - right_height
+
+    # ------------------------------------------------------------------
+    # Rebalanceo Global (Modo Estrés → Modo Normal)
+    # ------------------------------------------------------------------
+
+    def rebalance_full(self) -> dict:
+        """
+        Traverse the entire tree in post-order and apply AVL rotations
+        to every unbalanced node, regardless of stress mode.
+
+        Returns a stats dict with rotation counts per category so the
+        caller (stress_routes) can forward them to the frontend.
+        """
+        stats: dict[str, int] = {"LL": 0, "RR": 0, "LR": 0, "RL": 0, "total": 0}
+        self._rebalance_node(self.root, stats)
+        return stats
+
+    def _rebalance_node(self, node, stats: dict) -> None:
+        """Post-order recursive helper: children first, then current node."""
+        if node is None:
+            return
+        self._rebalance_node(node.getLeftChild(), stats)
+        self._rebalance_node(node.getRightChild(), stats)
+        self._force_balance(node, stats)
+
+    def _force_balance(self, node, stats: dict) -> None:
+        """
+        Apply a single balancing rotation to *node* if needed.
+        Always runs — ignores the StressService flag intentionally.
+        """
+        if node is None:
+            return
+        bf = self.getBalanceFactor(node)
+        if bf > 1 or bf < -1:
+            case = self.getBalanceCase(node, bf)
+            stats[case] += 1
+            stats["total"] += 1
+            if self._metrics is not None:
+                self._metrics.record_rotation(case)
+            match case:
+                case "LL":
+                    self.__rotateRight(node)
+                case "RR":
+                    self.__rotateLeft(node)
+                case "LR":
+                    self.__rotateLeft(node.getLeftChild())
+                    self.__rotateRight(node)
+                case "RL":
+                    self.__rotateRight(node.getRightChild())
+                    self.__rotateLeft(node)
 
     # Metodo para dibujar el arbol
     def print_tree(self):

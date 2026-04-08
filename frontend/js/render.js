@@ -86,6 +86,14 @@ function render() {
     svg.style.display   = 'block';
     stats.style.display = 'block';
 
+    // Visual cue: tint the canvas border red while stress mode is active.
+    const canvasWrap = document.getElementById('canvas-wrap');
+    if (typeof stressMode !== 'undefined' && stressMode) {
+        canvasWrap.style.outline = '2px solid #f8514966';
+    } else {
+        canvasWrap.style.outline = '';
+    }
+
     const pos   = getLayout(root);
     const edges = getEdges(root, pos);
     const vals  = Object.keys(pos);
@@ -98,6 +106,16 @@ function render() {
     svg.setAttribute('height',  H);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
+    // Build a flat map { "nodeValue" -> metadata } so the render loop
+    // can look up is_critical / precioFinal without a second traversal.
+    const nodeDataMap = {};
+    (function collectData(n) {
+        if (!n) return;
+        nodeDataMap[String(n.val)] = n.data || {};
+        collectData(n.left);
+        collectData(n.right);
+    })(root);
+
     let html = '';
     edges.forEach(e => {
         html += `<line x1="${e.f.x}" y1="${e.f.y}" x2="${e.t.x}" y2="${e.t.y}"
@@ -105,19 +123,38 @@ function render() {
     });
 
     vals.forEach(v => {
-        const nodeKey = String(v);
-        const p = pos[v];
-        const isPath = pathNodes.has(v)  || pathNodes.has(nodeKey);
-        const isHl   = highlighted.has(v) || highlighted.has(nodeKey);
-        const fill   = isPath ? '#bc8cff22' : isHl ? '#58a6ff22' : '#161b22';
-        const stroke = isPath ? '#bc8cff'   : isHl ? '#58a6ff'   : '#30363d';
-        const sw     = (isPath || isHl) ? 2.5 : 1.5;
-        const filter = (isPath || isHl) ? `filter:drop-shadow(0 0 7px ${stroke}66)` : '';
+        const nodeKey  = String(v);
+        const p        = pos[v];
+        const isPath   = pathNodes.has(v)   || pathNodes.has(nodeKey);
+        const isHl     = highlighted.has(v)  || highlighted.has(nodeKey);
+
+        // Determine node state flags.
+        const isCritical  = (typeof nodeDataMap !== 'undefined') && nodeDataMap[nodeKey]?.is_critical;
+        const isStress    = (typeof stressMode  !== 'undefined') && stressMode;
+        const isBoth      = isStress && isCritical;
+
+        // Color priority: path > highlighted > both > critical-only > stress-only > normal
+        const fill   = isPath   ? '#bc8cff22'
+                     : isHl     ? '#58a6ff22'
+                     : isBoth   ? '#ff6a0020'
+                     : isCritical ? '#f8514920'
+                     : isStress ? '#e3b34120'
+                     : '#161b22';
+        const stroke = isPath   ? '#bc8cff'
+                     : isHl     ? '#58a6ff'
+                     : isBoth   ? '#ff6a00'
+                     : isCritical ? '#f85149'
+                     : isStress ? '#e3b341'
+                     : '#30363d';
+        const sw     = (isPath || isHl || isCritical || isStress) ? 2.5 : 1.5;
+        const filter = (isPath || isHl) ? `filter:drop-shadow(0 0 7px ${stroke}66)`
+                     : (isCritical || isStress) ? `filter:drop-shadow(0 0 5px ${stroke}66)`
+                     : '';
         html += `<g style="${filter}">
             <circle cx="${p.x}" cy="${p.y}" r="${NR}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
             <text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="13"
                 font-weight="700" font-family="IBM Plex Mono,monospace"
-                fill="${(isPath || isHl) ? '#fff' : '#c9d1d9'}">${nodeKey}</text>
+                fill="${(isPath || isHl || isCritical || isStress) ? '#fff' : '#c9d1d9'}">${nodeKey}</text>
         </g>`;
     });
 

@@ -173,6 +173,35 @@
             <div id="queue-preview" class="queue-preview">Sin solicitudes pendientes.</div>
         </div>
 
+        <!-- PENALIZACIÓN POR PROFUNDIDAD (Punto 6) -->
+        <div class="section">
+            <div class="section-label">Profundidad Crítica</div>
+            <input type="number" id="depth-limit-input" min="0" placeholder="Ej: 3 (0 = raíz)">
+            <button class="btn btn-ghost-full" onclick="setDepthLimit()">⚠ Aplicar límite</button>
+            <div id="depth-limit-info" style="display:none;font-size:11px;color:#8b949e;
+                 margin-top:4px;padding:4px 6px;border-radius:4px;background:#161b22;">
+                Límite activo: <span id="depth-limit-value">—</span>
+                — nodos críticos en <span style="color:#f85149;">rojo</span>
+            </div>
+        </div>
+
+        <!-- MODO ESTRÉS (Punto 5) -->
+        <div class="section">
+            <div class="section-label">Modo Estrés</div>
+            <!-- Indicator shown only while stress is active -->
+            <div id="stress-indicator" style="display:none;align-items:center;gap:6px;
+                 margin-bottom:8px;padding:6px 10px;border-radius:6px;
+                 background:#ff000018;border:1px solid #f8514966;font-size:12px;color:#f85149;">
+                <span>⚠</span><span>Balanceo automático suspendido</span>
+            </div>
+            <div class="btn-grid">
+                <button class="btn btn-red-full" id="btn-stress-toggle"
+                        onclick="toggleStressMode()">⚡ Activar modo estrés</button>
+                <button class="btn btn-green-full" id="btn-global-rebalance"
+                        onclick="globalRebalance()">⚖ Rebalanceo Global</button>
+            </div>
+        </div>
+
         <!-- RECORRIDOS -->
         <div class="section">
             <div class="section-label">Recorridos</div>

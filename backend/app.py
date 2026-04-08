@@ -12,6 +12,9 @@ from services.tree_serializer import TreeSerializer
 from services.flight_factory import FlightFactory
 from services.queue_persistence_service import QueuePersistenceService
 from services.metrics_service import MetricsService
+from routes.stress_routes import stress_bp
+from routes.depth_routes import depth_bp
+
 
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
@@ -25,6 +28,25 @@ queue_persistence_service = QueuePersistenceService()
 
 avl_tree = AVL(metrics_service=metrics_service)
 bst_tree = BST()
+
+# Expose a late-binding getter so blueprints can always access the current
+# avl_tree instance even after it gets replaced (e.g. after _restore or _rebalance).
+app.config["get_avl"] = lambda: avl_tree
+app.register_blueprint(stress_bp)
+app.register_blueprint(depth_bp)
+
+
+# ── Depth penalty helper ───────────────────────────────────────────────────────
+def _apply_depth_penalties():
+    """Re-evaluate critical depth flags and prices on every AVL node.
+
+    Called after any operation that modifies the tree structure so that
+    is_critical and precioFinal are always consistent with the current
+    depth limit before the response is serialised.
+    """
+    from services.depth_penalty_service import DepthPenaltyService
+
+    DepthPenaltyService.instance().apply_penalties(avl_tree.root)
 
 
 # ── Convenience aliases ───────────────────────────────────────────────────────
@@ -105,6 +127,7 @@ def insert():
     if modo == "AVL":
         history_service.push("insert-avl", _snap())
         avl_tree.insert(Node(valor, metadata))
+        _apply_depth_penalties()
         return jsonify({"arbol": _to_dict(avl_tree)})
     else:
         history_service.push("insert-bst", _snap())
@@ -140,6 +163,7 @@ def delete():
         history_service.push("delete-avl", _snap())
         avl_tree.delete(valor)
         _rebalance()
+        _apply_depth_penalties()
         return jsonify({"arbol": _to_dict(avl_tree)})
     else:
         history_service.push("delete-bst", _snap())
@@ -188,6 +212,7 @@ def modify_node():
 
     if modo == "AVL":
         _rebalance()
+        _apply_depth_penalties()
     return jsonify({"arbol": _to_dict(avl_tree if modo == "AVL" else bst_tree)})
 
 
@@ -231,6 +256,7 @@ def cancel_flight_subtree():
 
     if modo == "AVL":
         _rebalance()
+        _apply_depth_penalties()
     return jsonify({"arbol": _to_dict(avl_tree if modo == "AVL" else bst_tree)})
 
 
@@ -448,9 +474,7 @@ def enqueue_insertion_request():
         "valor": valor,
         "flow_id": flow_id,
         "metadata": metadata,
-        "requested_at": datetime.now(timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        "requested_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
     queue_persistence_service.enqueue(modo, queue_item)
     queue = queue_persistence_service.get_queue(modo)
@@ -528,7 +552,9 @@ def process_pending_insertions():
             duplicate = _contains_value(tree, value)
 
             if not duplicate:
-                metadata = request_item.get("metadata") or FlightFactory.build({}, value)
+                metadata = request_item.get("metadata") or FlightFactory.build(
+                    {}, value
+                )
                 tree.insert(Node(value, metadata))
                 if modo == "AVL":
                     _rebalance()

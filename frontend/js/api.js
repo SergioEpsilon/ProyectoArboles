@@ -56,3 +56,20 @@ async function apiMetrics(modo) {
 async function apiMetricsReset() {
     return readResponseOrThrow(await postJSON('/metrics/reset', {}));
 }
+
+// ── Stress Mode (Point 5) ─────────────────────────────────────────────────────
+async function apiStressStatus() {
+    const res = await fetch(`${API_BASE}/stress/status`);
+    return readResponseOrThrow(res);
+}
+async function apiStressEnable()    { return readResponseOrThrow(await postJSON('/stress/enable',    {})); }
+async function apiStressDisable()   { return readResponseOrThrow(await postJSON('/stress/disable',   {})); }
+async function apiStressRebalance() { return readResponseOrThrow(await postJSON('/stress/rebalance', {})); }
+// ── Depth Penalty (Point 6) ───────────────────────────────────────────────────
+async function apiDepthLimitGet() {
+    const res = await fetch(`${API_BASE}/depth-limit/get`);
+    return readResponseOrThrow(res);
+}
+async function apiDepthLimitSet(depth) {
+    return readResponseOrThrow(await postJSON('/depth-limit/set', { depth }));
+}

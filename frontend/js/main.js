@@ -10,6 +10,12 @@ let activeTrav  = '';
 let queueCursor = 1;
 let queueProcessing = false;
 
+// Tracks whether stress mode (deferred rebalancing) is active.
+let stressMode = false;
+
+// Tracks the currently active critical depth limit (null = not set).
+let currentDepthLimit = null;
+
 // Tracks whether the flight modal is in 'insert' or 'modify' mode.
 let flightModalMode = 'insert';
 
@@ -443,10 +449,118 @@ async function resetAnalytics() {
     }
 }
 
+// ─── PENALIZACIÓN POR PROFUNDIDAD CRÍTICA (Punto 6) ─────────────────────────
+
+/** Send the depth limit to the backend and re-render the updated tree. */
+async function setDepthLimit() {
+    const raw   = document.getElementById('depth-limit-input').value.trim();
+    const depth = parseInt(raw, 10);
+
+    if (raw === '' || isNaN(depth) || depth < 0) {
+        alert('Ingresa un número entero mayor o igual a 0 para la profundidad crítica.');
+        return;
+    }
+
+    try {
+        const data = await apiDepthLimitSet(depth);
+        currentDepthLimit = depth;
+        root = data.arbol;
+        _applyDepthLimitUI(depth);
+        render();
+        addLog(
+            `Profundidad crítica establecida en ${depth}. Nodos críticos actualizados.`,
+            'ok'
+        );
+    } catch (e) {
+        addLog(`Error al establecer profundidad crítica: ${e.message}`, 'err');
+        alert(`Error: ${e.message}`);
+    }
+}
+
+/** Update the sidebar indicator with the active limit. */
+function _applyDepthLimitUI(depth) {
+    const info  = document.getElementById('depth-limit-info');
+    const value = document.getElementById('depth-limit-value');
+    info.style.display  = 'block';
+    value.textContent   = depth;
+}
+
+/** Load the current depth limit from the server on startup. */
+async function loadDepthLimit() {
+    try {
+        const data = await apiDepthLimitGet();
+        if (data.critical_depth !== null && data.critical_depth !== undefined) {
+            currentDepthLimit = data.critical_depth;
+            document.getElementById('depth-limit-input').value = data.critical_depth;
+            _applyDepthLimitUI(data.critical_depth);
+        }
+    } catch (_) {}
+}
+
+// ─── MODO ESTRÉS (Punto 5) ───────────────────────────────────────────────────
+
+/** Toggle stress mode on/off and update the UI accordingly. */
+async function toggleStressMode() {
+    try {
+        if (!stressMode) {
+            await apiStressEnable();
+            stressMode = true;
+            addLog('Modo estrés ACTIVADO. El balanceo automático está suspendido.', 'err');
+        } else {
+            await apiStressDisable();
+            stressMode = false;
+            addLog('Modo estrés DESACTIVADO. Usa "Rebalanceo Global" para corregir el árbol.', 'info');
+        }
+        _applyStressModeUI();
+    } catch (e) {
+        addLog(`Error al cambiar modo estrés: ${e.message}`, 'err');
+    }
+}
+
+/** Force a full AVL rebalance and show the rotation stats in the log. */
+async function globalRebalance() {
+    if (stressMode) {
+        addLog('Desactiva el modo estrés antes de hacer el Rebalanceo Global.', 'err');
+        return;
+    }
+    try {
+        const data = await apiStressRebalance();
+        root = data.arbol;
+        render();
+        const r = data.rotations || {};
+        addLog(
+            `Rebalanceo global: ${r.total} rotaciones — LL:${r.LL} RR:${r.RR} LR:${r.LR} RL:${r.RL}`,
+            r.total > 0 ? 'ok' : 'info'
+        );
+    } catch (e) {
+        addLog(`Error en rebalanceo global: ${e.message}`, 'err');
+    }
+}
+
+/** Sync button label, style and rebalance button visibility with current stressMode value. */
+function _applyStressModeUI() {
+    const btn        = document.getElementById('btn-stress-toggle');
+    const btnRebal   = document.getElementById('btn-global-rebalance');
+    const indicator  = document.getElementById('stress-indicator');
+
+    if (stressMode) {
+        btn.textContent      = '⚡ Desactivar modo estrés';
+        btn.classList.add('stress-active');
+        btnRebal.style.display  = 'none';
+        indicator.style.display = 'flex';
+    } else {
+        btn.textContent      = '⚡ Activar modo estrés';
+        btn.classList.remove('stress-active');
+        btnRebal.style.display  = 'block';
+        indicator.style.display = 'none';
+    }
+}
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 render();
 loadVersionList();
 loadQueueState();
+loadDepthLimit();
 
 document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
