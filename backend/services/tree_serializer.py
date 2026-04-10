@@ -162,14 +162,16 @@ class TreeSerializer:
         get = TreeSerializer.get_metadata_value
         promotions = get(metadata, ("promociones", "promotions"), []) or []
         alerts = get(metadata, ("alertas", "alerts"), []) or []
+        base_price = get(metadata, ("precio_base", "base_price", "precioBase"))
+        final_price = get(metadata, ("precio_final", "final_price", "precioFinal"))
+        if final_price is None:
+            final_price = base_price
         return {
             "value": node.getValue(),
             "height": tree.getHeightNode(node),
             "balance_factor": TreeSerializer.compute_balance_factor(tree, node),
-            "base_price": get(metadata, ("precio_base", "base_price", "precioBase")),
-            "final_price": get(
-                metadata, ("precio_final", "final_price", "precioFinal")
-            ),
+            "base_price": base_price,
+            "final_price": final_price,
             "passengers": get(metadata, ("pasajeros", "passengers"), 0),
             "promotions": promotions,
             "alerts": alerts,

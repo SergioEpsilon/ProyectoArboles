@@ -9,6 +9,9 @@ let pathNodes   = new Set();
 let activeTrav  = '';
 let queueCursor = 1;
 let queueProcessing = false;
+let selectedNodeInfo = null;
+
+const DEMO_STORAGE_KEY = 'skybalance-demo-state';
 
 // Tracks whether stress mode (deferred rebalancing) is active.
 let stressMode = false;
@@ -36,11 +39,102 @@ function clearTraversalState() {
     highlighted.clear();
     pathNodes.clear();
     activeTrav = '';
+    selectedNodeInfo = null;
     document.querySelectorAll('.trav-btn').forEach(b => b.classList.remove('active'));
+    renderSelectedNodeInfo();
 }
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function syncModeButtons() {
+    document.getElementById('btn-bst').classList.toggle('active', mode === 'BST');
+    document.getElementById('btn-avl').classList.toggle('active', mode === 'AVL');
+}
+
+function saveDemoState() {
+    if (!root) return;
+    try {
+        localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify({ mode, root }));
+    } catch (_) {}
+}
+
+function restoreDemoState() {
+    try {
+        const raw = localStorage.getItem(DEMO_STORAGE_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.root) return false;
+        root = parsed.root;
+        mode = parsed.mode === 'AVL' ? 'AVL' : 'BST';
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+function localTreeContains(node, value) {
+    if (!node) return false;
+    if (String(node.val) === String(value)) return true;
+    return localTreeContains(node.left, value) || localTreeContains(node.right, value);
+}
+
+function selectTreeNode(encodedValue, encodedMetadata) {
+    const value = decodeURIComponent(encodedValue);
+    let metadata = {};
+
+    try {
+        metadata = JSON.parse(decodeURIComponent(encodedMetadata));
+    } catch (_) {
+        metadata = {};
+    }
+
+    selectedNodeInfo = { value, metadata };
+    renderSelectedNodeInfo();
+    addLog(`Nodo seleccionado: ${value}`, 'info');
+}
+
+function renderSelectedNodeInfo() {
+    const empty = document.getElementById('node-info-empty');
+    const content = document.getElementById('node-info-content');
+
+    if (!empty || !content) return;
+
+    if (!selectedNodeInfo || !root || !localTreeContains(root, selectedNodeInfo.value)) {
+        selectedNodeInfo = null;
+        empty.style.display = 'block';
+        content.style.display = 'none';
+        return;
+    }
+
+    const metadata = selectedNodeInfo.metadata || {};
+    const pick = (keys, fallback = '—') => {
+        for (const key of keys) {
+            if (Object.prototype.hasOwnProperty.call(metadata, key)) {
+                const value = metadata[key];
+                if (value !== undefined && value !== null && value !== '') return value;
+            }
+        }
+        return fallback;
+    };
+
+    document.getElementById('node-info-code').textContent = selectedNodeInfo.value;
+    document.getElementById('node-info-origin').textContent = pick(['origen', 'origin']);
+    document.getElementById('node-info-destiny').textContent = pick(['destino', 'destination']);
+    document.getElementById('node-info-time').textContent = pick(['horaSalida', 'time', 'hora']);
+    document.getElementById('node-info-passengers').textContent = pick(['pasajeros', 'passengers'], 0);
+    document.getElementById('node-info-base-price').textContent = pick(['precioBase', 'base_price'], 0);
+    const basePrice = pick(['precioBase', 'base_price'], 0);
+    const finalPrice = pick(['precioFinal', 'final_price'], basePrice);
+    document.getElementById('node-info-final-price').textContent = finalPrice;
+    document.getElementById('node-info-priority').textContent = pick(['prioridad', 'priority'], 0);
+    document.getElementById('node-info-promotion').textContent = pick(['promocion', 'promotion'], false) ? 'Sí' : 'No';
+    document.getElementById('node-info-alert').textContent = pick(['alerta', 'alert'], false) ? 'Sí' : 'No';
+    document.getElementById('node-info-critical').textContent = pick(['is_critical', 'critical'], false) ? 'Sí' : 'No';
+
+    empty.style.display = 'none';
+    content.style.display = 'block';
 }
 
 /** Reset all flight modal fields to empty/default. */
@@ -79,8 +173,7 @@ function readFlightModalData() {
 // ─── MODE ────────────────────────────────────────────────────────────────────
 function setMode(m) {
     mode = m;
-    document.getElementById('btn-bst').classList.toggle('active', m === 'BST');
-    document.getElementById('btn-avl').classList.toggle('active', m === 'AVL');
+    syncModeButtons();
     clearTree();
     loadQueueState();
 }
@@ -223,6 +316,7 @@ function loadDemo() {
     [30, 20, 40, 10, 25, 35, 50].forEach(v => {
         root = mode === 'AVL' ? avlInsert(root, v) : bstInsert(root, v);
     });
+    saveDemoState();
     clearTraversalState();
     addLog('Demo cargado: [30,20,40,10,25,35,50]', 'ok');
     render();
@@ -557,6 +651,8 @@ function _applyStressModeUI() {
 }
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
+restoreDemoState();
+syncModeButtons();
 render();
 loadVersionList();
 loadQueueState();

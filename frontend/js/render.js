@@ -127,6 +127,7 @@ function render() {
         const p        = pos[v];
         const isPath   = pathNodes.has(v)   || pathNodes.has(nodeKey);
         const isHl     = highlighted.has(v)  || highlighted.has(nodeKey);
+        const nodeMeta = nodeDataMap[nodeKey] || {};
 
         // Determine node state flags.
         const isCritical  = (typeof nodeDataMap !== 'undefined') && nodeDataMap[nodeKey]?.is_critical;
@@ -150,7 +151,10 @@ function render() {
         const filter = (isPath || isHl) ? `filter:drop-shadow(0 0 7px ${stroke}66)`
                      : (isCritical || isStress) ? `filter:drop-shadow(0 0 5px ${stroke}66)`
                      : '';
-        html += `<g style="${filter}">
+        const groupStyle = [filter, 'cursor:pointer'].filter(Boolean).join(';');
+        const encodedValue = encodeURIComponent(nodeKey);
+        const encodedMetadata = encodeURIComponent(JSON.stringify(nodeMeta));
+        html += `<g style="${groupStyle}" onclick="selectTreeNode('${encodedValue}','${encodedMetadata}')">
             <circle cx="${p.x}" cy="${p.y}" r="${NR}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>
             <text x="${p.x}" y="${p.y + 5}" text-anchor="middle" font-size="13"
                 font-weight="700" font-family="IBM Plex Mono,monospace"
@@ -160,6 +164,7 @@ function render() {
 
     svg.innerHTML = html;
     renderStats();
+    if (typeof renderSelectedNodeInfo === 'function') renderSelectedNodeInfo();
 }
 
 function renderStats() {

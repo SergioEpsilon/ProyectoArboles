@@ -152,6 +152,37 @@ button.btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
 .stat-row span:first-child { color: #484f58; }
 .stat-row span:last-child  { color: #58a6ff; font-weight: 700; }
 
+/* ── NODE INFO ───────────────────────────────────────────── */
+.node-info-card {
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.node-info-empty {
+    font-size: 11px;
+    color: #8b949e;
+    line-height: 1.45;
+}
+.node-info-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+}
+.node-info-row span {
+    color: #484f58;
+}
+.node-info-row strong {
+    color: #c9d1d9;
+    font-weight: 700;
+    text-align: right;
+    word-break: break-word;
+}
+
 /* ── MODAL ────────────────────────────────────────────────── */
 .modal-overlay {
     position: fixed;

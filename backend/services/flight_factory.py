@@ -44,10 +44,11 @@ class FlightFactory:
         metadata["codigo"] = data.get("codigo", valor)
 
         for field, default in FlightFactory.DEFAULTS.items():
-            metadata[field] = data.get(field, default)
+            value = data.get(field, default)
+            metadata[field] = default if value is None else value
 
-        # Ensure precioFinal defaults to precioBase when not provided.
-        if not metadata["precioFinal"]:
+        # Ensure precioFinal defaults to precioBase only when it was omitted.
+        if "precioFinal" not in data or data.get("precioFinal") is None:
             metadata["precioFinal"] = metadata["precioBase"]
 
         return metadata
@@ -65,7 +66,7 @@ class FlightFactory:
         """
         merged = dict(existing)
         for field in ("codigo", *FlightFactory.DEFAULTS.keys()):
-            if field in updates:
+            if field in updates and updates[field] is not None:
                 merged[field] = updates[field]
 
         # Keep precioFinal consistent after a precioBase update.

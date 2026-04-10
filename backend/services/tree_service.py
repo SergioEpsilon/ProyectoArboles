@@ -288,7 +288,10 @@ class TreeLoadService:
         # Attempt best-effort detection when key_field was not provided.
         for candidate in cls.KEY_CANDIDATES:
             if candidate in item:
-                return item[candidate], dict(item)
+                metadata = dict(item)
+                if "precioFinal" not in metadata and "precioBase" in metadata:
+                    metadata["precioFinal"] = metadata["precioBase"]
+                return item[candidate], metadata
 
         # Reject dictionaries that do not expose any sortable key.
         raise ValueError(

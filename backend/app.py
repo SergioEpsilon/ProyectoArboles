@@ -557,7 +557,7 @@ def process_pending_insertions():
                 )
                 tree.insert(Node(value, metadata))
                 if modo == "AVL":
-                    _rebalance()
+                    _apply_depth_penalties()
 
             balance = _root_balance(modo)
             critical_balance = abs(balance) >= 2
