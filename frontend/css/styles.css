@@ -11,6 +11,91 @@ body {
     overflow: hidden;
 }
 
+body.stress-unlocked {
+    background: #140f11;
+}
+
+body.stress-unlocked #sidebar,
+body.stress-unlocked #result-bar,
+body.stress-unlocked #log-bar {
+    background: #1d1518;
+}
+
+body.stress-unlocked #sidebar,
+body.stress-unlocked #result-bar,
+body.stress-unlocked #log-bar,
+body.stress-unlocked .node-info-card,
+body.stress-unlocked #stats,
+body.stress-unlocked .queue-preview,
+body.stress-unlocked .modal {
+    border-color: #5f2d34;
+}
+
+body.stress-unlocked .result-pill {
+    background: #ff7b7222;
+    color: #ffb4ac;
+}
+
+body.stress-unlocked .result-pill.path {
+    background: #ffc15b22;
+    color: #ffd28d;
+}
+
+body.stress-unlocked .mode-btn.active {
+    border-color: #ff7b72;
+    color: #ff7b72;
+    background: #ff7b7218;
+}
+
+.stress-lock-btn {
+    position: fixed;
+    top: 12px;
+    right: 14px;
+    z-index: 120;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid #3a2528;
+    background: #221519;
+    color: #ffb4ac;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+}
+
+.stress-lock-btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+.stress-lock-btn.unlocked {
+    border-color: #7d3a3a;
+    background: #2b171b;
+    color: #ffd28d;
+}
+
+.stress-lock-modal {
+    width: 320px;
+}
+
+.stress-lock-error {
+    font-size: 11px;
+    color: #f87171;
+    border: 1px solid #f8717144;
+    background: #f8717114;
+    border-radius: 6px;
+    padding: 7px 9px;
+}
+
+.stress-lock-note {
+    font-size: 12px;
+    color: #8b949e;
+    line-height: 1.5;
+}
+
 /* ── SIDEBAR ──────────────────────────────────────────────── */
 #sidebar {
     width: 240px;
@@ -108,6 +193,12 @@ button.btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
 
 .btn-green-full:hover, .btn-ghost-full:hover,
 .btn-red-full:hover, .btn-demo-full:hover { filter:brightness(1.2); transform:translateY(-1px); }
+
+#btn-stress-toggle.stress-locked {
+    background: #f8514918;
+    color: #f87171;
+    border: 1px solid #f8514966;
+}
 
 /* ── TRAVERSAL BUTTONS ────────────────────────────────────── */
 .trav-btn {

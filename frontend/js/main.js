@@ -12,9 +12,12 @@ let queueProcessing = false;
 let selectedNodeInfo = null;
 
 const DEMO_STORAGE_KEY = 'skybalance-demo-state';
+const STRESS_UNLOCK_STORAGE_KEY = 'skybalance-stress-unlocked';
+const STRESS_UNLOCK_CODE = '151515';
 
 // Tracks whether stress mode (deferred rebalancing) is active.
 let stressMode = false;
+let stressUnlocked = false;
 
 // Tracks the currently active critical depth limit (null = not set).
 let currentDepthLimit = null;
@@ -71,6 +74,135 @@ function restoreDemoState() {
         return true;
     } catch (_) {
         return false;
+    }
+}
+
+function persistStressUnlockState() {
+    try {
+        localStorage.setItem(STRESS_UNLOCK_STORAGE_KEY, stressUnlocked ? '1' : '0');
+    } catch (_) {}
+}
+
+function restoreStressUnlockState() {
+    try {
+        stressUnlocked = localStorage.getItem(STRESS_UNLOCK_STORAGE_KEY) === '1';
+    } catch (_) {
+        stressUnlocked = false;
+    }
+}
+
+function _applyStressUnlockUI() {
+    const body = document.body;
+    const lockBtn = document.getElementById('stress-lock-btn');
+    const lockIcon = document.getElementById('stress-lock-icon');
+
+    body.classList.toggle('stress-unlocked', stressUnlocked);
+
+    if (lockBtn) {
+        lockBtn.classList.toggle('unlocked', stressUnlocked);
+        lockBtn.title = stressUnlocked ? 'Volver a bloquear modo estrés' : 'Desbloquear modo estrés';
+        lockBtn.setAttribute('aria-label', lockBtn.title);
+    }
+    if (lockIcon) {
+        lockIcon.textContent = stressUnlocked ? '🔓' : '🔒';
+    }
+}
+
+async function handleStressLockClick() {
+    if (!stressUnlocked) {
+        openStressUnlockModal();
+        return;
+    }
+
+    openStressRelockModal();
+}
+
+function openStressRelockModal() {
+    const overlay = document.getElementById('stress-relock-modal-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+}
+
+function closeStressRelockModal() {
+    const overlay = document.getElementById('stress-relock-modal-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+}
+
+async function confirmStressRelock() {
+    closeStressRelockModal();
+
+    try {
+        if (stressMode) {
+            await apiStressDisable();
+            stressMode = false;
+        }
+        stressUnlocked = false;
+        persistStressUnlockState();
+        _applyStressUnlockUI();
+        _applyStressModeUI();
+        addLog('Modo estrés bloqueado nuevamente.', 'info');
+    } catch (e) {
+        addLog(`No se pudo bloquear el modo estrés: ${e.message}`, 'err');
+    }
+}
+
+function openStressUnlockModal() {
+    if (stressUnlocked) {
+        addLog('Modo estrés ya desbloqueado por código.', 'info');
+        return;
+    }
+    const overlay = document.getElementById('stress-lock-modal-overlay');
+    const input = document.getElementById('stress-lock-code');
+    const error = document.getElementById('stress-lock-error');
+
+    if (!overlay || !input) return;
+    overlay.style.display = 'flex';
+    input.value = '';
+    if (error) {
+        error.style.display = 'none';
+        error.textContent = '';
+    }
+    input.focus();
+}
+
+function closeStressUnlockModal() {
+    const overlay = document.getElementById('stress-lock-modal-overlay');
+    const input = document.getElementById('stress-lock-code');
+    const error = document.getElementById('stress-lock-error');
+
+    if (overlay) overlay.style.display = 'none';
+    if (input) input.value = '';
+    if (error) {
+        error.style.display = 'none';
+        error.textContent = '';
+    }
+}
+
+async function validateStressUnlockCode() {
+    const input = document.getElementById('stress-lock-code');
+    const error = document.getElementById('stress-lock-error');
+    if (!input) return;
+
+    const code = input.value.trim();
+    if (code !== STRESS_UNLOCK_CODE) {
+        if (error) {
+            error.textContent = 'Código incorrecto. Intenta de nuevo.';
+            error.style.display = 'block';
+        }
+        return;
+    }
+
+    stressUnlocked = true;
+    persistStressUnlockState();
+    _applyStressUnlockUI();
+    closeStressUnlockModal();
+    addLog('Código válido: modo estrés desbloqueado.', 'ok');
+
+    if (!stressMode) {
+        await toggleStressMode();
+    } else {
+        _applyStressModeUI();
     }
 }
 
@@ -251,7 +383,11 @@ async function _doModify() {
 }
 
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeFlightModal();
+    if (e.key === 'Escape') {
+        closeFlightModal();
+        closeStressUnlockModal();
+        closeStressRelockModal();
+    }
 });
 
 // ─── TREE OPERATIONS ─────────────────────────────────────────────────────────
@@ -595,6 +731,12 @@ async function loadDepthLimit() {
 
 /** Toggle stress mode on/off and update the UI accordingly. */
 async function toggleStressMode() {
+    if (!stressMode && !stressUnlocked) {
+        addLog('Modo estrés bloqueado. Usa el candado y el código de activación.', 'info');
+        openStressUnlockModal();
+        return;
+    }
+
     try {
         if (!stressMode) {
             await apiStressEnable();
@@ -637,14 +779,18 @@ function _applyStressModeUI() {
     const btnRebal   = document.getElementById('btn-global-rebalance');
     const indicator  = document.getElementById('stress-indicator');
 
+    if (!btn || !btnRebal || !indicator) return;
+
     if (stressMode) {
         btn.textContent      = '⚡ Desactivar modo estrés';
         btn.classList.add('stress-active');
+        btn.classList.remove('stress-locked');
         btnRebal.style.display  = 'none';
         indicator.style.display = 'flex';
     } else {
-        btn.textContent      = '⚡ Activar modo estrés';
+        btn.textContent      = stressUnlocked ? '⚡ Activar modo estrés' : '🔒 Modo estrés bloqueado';
         btn.classList.remove('stress-active');
+        btn.classList.toggle('stress-locked', !stressUnlocked);
         btnRebal.style.display  = 'block';
         indicator.style.display = 'none';
     }
@@ -652,11 +798,14 @@ function _applyStressModeUI() {
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 restoreDemoState();
+restoreStressUnlockState();
+_applyStressUnlockUI();
 syncModeButtons();
 render();
 loadVersionList();
 loadQueueState();
 loadDepthLimit();
+_applyStressModeUI();
 
 document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
