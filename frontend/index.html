@@ -1,316 +1,569 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SkyBalance</title>
-    <link rel="stylesheet" href="css/styles.css">
-</head>
-<body>
-
-    <button id="stress-lock-btn" class="stress-lock-btn" onclick="handleStressLockClick()" aria-label="Desbloquear modo estrés" title="Desbloquear modo estrés">
-        <span id="stress-lock-icon">🔒</span>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body>
+    <button
+      id="stress-lock-btn"
+      class="stress-lock-btn"
+      onclick="handleStressLockClick()"
+      aria-label="Desbloquear modo estrés"
+      title="Desbloquear modo estrés"
+    >
+      <span id="stress-lock-icon">🔒</span>
     </button>
 
-    <div id="stress-lock-modal-overlay" class="modal-overlay" style="display:none"
-         onclick="closeStressUnlockModal()">
-        <div class="modal stress-lock-modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <span>🔐 Activar modo estrés</span>
-                <button class="modal-close" onclick="closeStressUnlockModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <label>Código de activación</label>
-                <input type="password" id="stress-lock-code" placeholder="Ingresa el código"
-                       onkeydown="if(event.key==='Enter') validateStressUnlockCode()">
-                <div id="stress-lock-error" class="stress-lock-error" style="display:none"></div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-ghost-full" onclick="closeStressUnlockModal()">Cancelar</button>
-                <button class="btn btn-red-full" onclick="validateStressUnlockCode()">Validar código</button>
-            </div>
+    <div
+      id="stress-lock-modal-overlay"
+      class="modal-overlay"
+      style="display: none"
+      onclick="closeStressUnlockModal()"
+    >
+      <div class="modal stress-lock-modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <span>🔐 Activar modo estrés</span>
+          <button class="modal-close" onclick="closeStressUnlockModal()">
+            ✕
+          </button>
         </div>
+        <div class="modal-body">
+          <label>Código de activación</label>
+          <input
+            type="password"
+            id="stress-lock-code"
+            placeholder="Ingresa el código"
+            onkeydown="if (event.key === 'Enter') validateStressUnlockCode();"
+          />
+          <div
+            id="stress-lock-error"
+            class="stress-lock-error"
+            style="display: none"
+          ></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost-full" onclick="closeStressUnlockModal()">
+            Cancelar
+          </button>
+          <button class="btn btn-red-full" onclick="validateStressUnlockCode()">
+            Validar código
+          </button>
+        </div>
+      </div>
     </div>
 
-    <div id="stress-relock-modal-overlay" class="modal-overlay" style="display:none"
-         onclick="closeStressRelockModal()">
-        <div class="modal stress-lock-modal" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <span>🔓 Bloquear modo estrés</span>
-                <button class="modal-close" onclick="closeStressRelockModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <p class="stress-lock-note">Se volverá a bloquear el modo estrés y se quitará el cambio de color.</p>
-                <p class="stress-lock-note">Si está activo en este momento, también se desactivará automáticamente.</p>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-ghost-full" onclick="closeStressRelockModal()">Cancelar</button>
-                <button class="btn btn-red-full" onclick="confirmStressRelock()">Sí, bloquear</button>
-            </div>
+    <div
+      id="stress-relock-modal-overlay"
+      class="modal-overlay"
+      style="display: none"
+      onclick="closeStressRelockModal()"
+    >
+      <div class="modal stress-lock-modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <span>🔓 Bloquear modo estrés</span>
+          <button class="modal-close" onclick="closeStressRelockModal()">
+            ✕
+          </button>
         </div>
+        <div class="modal-body">
+          <p class="stress-lock-note">
+            Se volverá a bloquear el modo estrés y se quitará el cambio de
+            color.
+          </p>
+          <p class="stress-lock-note">
+            Si está activo en este momento, también se desactivará
+            automáticamente.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost-full" onclick="closeStressRelockModal()">
+            Cancelar
+          </button>
+          <button class="btn btn-red-full" onclick="confirmStressRelock()">
+            Sí, bloquear
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ── MODAL: VUELO (Insertar / Modificar) ── -->
-    <div id="flight-modal-overlay" class="modal-overlay" style="display:none"
-         onclick="closeFlightModal()">
-        <div class="modal" onclick="event.stopPropagation()">
-
-            <div class="modal-header">
-                <span id="flight-modal-title">✈ Nuevo Vuelo</span>
-                <button class="modal-close" onclick="closeFlightModal()">✕</button>
-            </div>
-
-            <div class="modal-body">
-
-                <!-- Fila 1: Código (clave de ordenamiento) -->
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Código del vuelo <span class="required">*</span></label>
-                        <input type="text" id="f-codigo" placeholder="Ej: SB400">
-                    </div>
-                    <div class="modal-field" id="f-old-codigo-wrap" style="display:none">
-                        <label>Código actual (a modificar) <span class="required">*</span></label>
-                        <input type="text" id="f-old-codigo" placeholder="Ej: SB400">
-                    </div>
-                </div>
-
-                <!-- Fila 2: Origen / Destino -->
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Origen</label>
-                        <input type="text" id="f-origen" placeholder="Ej: Medellín">
-                    </div>
-                    <div class="modal-field">
-                        <label>Destino</label>
-                        <input type="text" id="f-destino" placeholder="Ej: Bogotá">
-                    </div>
-                </div>
-
-                <!-- Fila 3: Hora salida / Pasajeros -->
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Hora de salida</label>
-                        <input type="text" id="f-hora" placeholder="Ej: 10:00">
-                    </div>
-                    <div class="modal-field">
-                        <label>Pasajeros</label>
-                        <input type="number" id="f-pasajeros" placeholder="Ej: 120" min="0">
-                    </div>
-                </div>
-
-                <!-- Fila 4: Precio base / Precio final -->
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Precio base ($)</label>
-                        <input type="number" id="f-precio-base" placeholder="Ej: 400" min="0" step="0.01">
-                    </div>
-                    <div class="modal-field">
-                        <label>Precio final ($)</label>
-                        <input type="number" id="f-precio-final" placeholder="Auto desde base" min="0" step="0.01">
-                    </div>
-                </div>
-
-                <!-- Fila 5: Prioridad -->
-                <div class="modal-row">
-                    <div class="modal-field">
-                        <label>Prioridad</label>
-                        <select id="f-prioridad">
-                            <option value="1">1 — Alta</option>
-                            <option value="2" selected>2 — Media</option>
-                            <option value="3">3 — Baja</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Fila 6: Toggles -->
-                <div class="modal-toggles">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="f-promocion">
-                        <span>Promoción activa</span>
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="f-alerta">
-                        <span>Alerta activa</span>
-                    </label>
-                </div>
-
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn btn-ghost-full" onclick="closeFlightModal()">Cancelar</button>
-                <button class="btn btn-green-full" id="flight-modal-confirm"
-                        onclick="confirmFlightModal()">＋ Insertar vuelo</button>
-            </div>
+    <div
+      id="flight-modal-overlay"
+      class="modal-overlay"
+      style="display: none"
+      onclick="closeFlightModal()"
+    >
+      <div class="modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <span id="flight-modal-title">✈ Nuevo Vuelo</span>
+          <button class="modal-close" onclick="closeFlightModal()">✕</button>
         </div>
+
+        <div class="modal-body">
+          <!-- Fila 1: Código (clave de ordenamiento) -->
+          <div class="modal-row">
+            <div class="modal-field">
+              <label>Código del vuelo <span class="required">*</span></label>
+              <input type="text" id="f-codigo" placeholder="Ej: SB400" />
+            </div>
+            <div
+              class="modal-field"
+              id="f-old-codigo-wrap"
+              style="display: none"
+            >
+              <label
+                >Código actual (a modificar)
+                <span class="required">*</span></label
+              >
+              <input type="text" id="f-old-codigo" placeholder="Ej: SB400" />
+            </div>
+          </div>
+
+          <!-- Fila 2: Origen / Destino -->
+          <div class="modal-row">
+            <div class="modal-field">
+              <label>Origen</label>
+              <input type="text" id="f-origen" placeholder="Ej: Medellín" />
+            </div>
+            <div class="modal-field">
+              <label>Destino</label>
+              <input type="text" id="f-destino" placeholder="Ej: Bogotá" />
+            </div>
+          </div>
+
+          <!-- Fila 3: Hora salida / Pasajeros -->
+          <div class="modal-row">
+            <div class="modal-field">
+              <label>Hora de salida</label>
+              <input type="text" id="f-hora" placeholder="Ej: 10:00" />
+            </div>
+            <div class="modal-field">
+              <label>Pasajeros</label>
+              <input
+                type="number"
+                id="f-pasajeros"
+                placeholder="Ej: 120"
+                min="0"
+              />
+            </div>
+          </div>
+
+          <!-- Fila 4: Precio base / Precio final -->
+          <div class="modal-row">
+            <div class="modal-field">
+              <label>Precio base ($)</label>
+              <input
+                type="number"
+                id="f-precio-base"
+                placeholder="Ej: 400"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div class="modal-field">
+              <label>Precio final ($)</label>
+              <input
+                type="number"
+                id="f-precio-final"
+                placeholder="Auto desde base"
+                min="0"
+                step="0.01"
+              />
+            </div>
+          </div>
+
+          <!-- Fila 5: Prioridad -->
+          <div class="modal-row">
+            <div class="modal-field">
+              <label>Prioridad</label>
+              <select id="f-prioridad">
+                <option value="1">1 — Alta</option>
+                <option value="2" selected>2 — Media</option>
+                <option value="3">3 — Baja</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Fila 6: Toggles -->
+          <div class="modal-toggles">
+            <label class="toggle-label">
+              <input type="checkbox" id="f-promocion" />
+              <span>Promoción activa</span>
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="f-alerta" />
+              <span>Alerta activa</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost-full" onclick="closeFlightModal()">
+            Cancelar
+          </button>
+          <button
+            class="btn btn-green-full"
+            id="flight-modal-confirm"
+            onclick="confirmFlightModal()"
+          >
+            ＋ Insertar vuelo
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- ── SIDEBAR ── -->
     <div id="sidebar">
-        <h1>✈️ Sky<span>Balance</span></h1>
+      <h1>✈️ Sky<span>Balance</span></h1>
 
-        <!-- MODO -->
-        <div class="section">
-            <div class="section-label">Modo</div>
-            <div class="mode-row">
-                <button class="mode-btn active" id="btn-bst" onclick="setMode('BST')">BST</button>
-                <button class="mode-btn" id="btn-avl" onclick="setMode('AVL')">AVL</button>
+      <!-- MODO -->
+      <div class="section">
+        <div class="section-label">Modo</div>
+        <div class="mode-row">
+          <button class="mode-btn active" id="btn-bst" onclick="setMode('BST')">
+            BST
+          </button>
+          <button class="mode-btn" id="btn-avl" onclick="setMode('AVL')">
+            AVL
+          </button>
+        </div>
+      </div>
+
+      <!-- OPERACIONES -->
+      <div class="section">
+        <div class="section-label">Operaciones</div>
+        <input
+          type="text"
+          id="val-input"
+          placeholder="Código del vuelo (eliminar/cancelar)"
+          onkeydown="if (event.key === 'Enter') deleteNode();"
+        />
+        <div class="btn-grid">
+          <button class="btn btn-green" onclick="openInsertModal()">
+            ＋ Insertar
+          </button>
+          <button class="btn btn-red" onclick="deleteNode()">
+            － Eliminar
+          </button>
+          <button class="btn btn-ghost-full" onclick="openModifyModal()">
+            ✏ Modificar nodo
+          </button>
+          <button class="btn btn-red-full" onclick="cancelFlight()">
+            ✈ Cancelar vuelo
+          </button>
+          <button
+            class="btn btn-red-full"
+            onclick="deleteLowestProfitabilityNode()"
+          >
+            💸 Eliminación menor rentabilidad
+          </button>
+        </div>
+      </div>
+
+      <!-- HISTORIAL -->
+      <div class="section">
+        <div class="section-label">Historial</div>
+        <div class="btn-grid">
+          <button class="btn btn-ghost" onclick="undoAction()">
+            ↩ Deshacer
+          </button>
+          <button class="btn btn-ghost" onclick="clearTree()">
+            🗑 Limpiar
+          </button>
+        </div>
+      </div>
+
+      <!-- JSON -->
+      <div class="section">
+        <div class="section-label">JSON</div>
+        <input
+          type="file"
+          id="json-file-input"
+          accept="application/json"
+          style="display: none"
+          onchange="handleJsonFileSelection(event)"
+        />
+        <div class="btn-grid">
+          <button class="btn btn-ghost" onclick="openJsonPicker()">
+            📂 Cargar
+          </button>
+          <button class="btn btn-ghost" onclick="exportTreeJson()">
+            ⤓ Exportar
+          </button>
+          <button class="btn btn-demo-full" onclick="loadDemo()">
+            🚀 Cargar demo
+          </button>
+        </div>
+      </div>
+
+      <!-- NODO SELECCIONADO -->
+      <div class="section">
+        <div class="section-label">Nodo seleccionado</div>
+        <div id="node-info-card" class="node-info-card">
+          <div id="node-info-empty" class="node-info-empty">
+            Haz clic en un nodo para ver sus datos.
+          </div>
+          <div id="node-info-content" style="display: none">
+            <div class="node-info-row">
+              <span>Código</span><strong id="node-info-code">—</strong>
             </div>
-        </div>
-
-        <!-- OPERACIONES -->
-        <div class="section">
-            <div class="section-label">Operaciones</div>
-            <input type="text" id="val-input" placeholder="Código del vuelo (eliminar/cancelar)"
-                onkeydown="if(event.key==='Enter') deleteNode()">
-            <div class="btn-grid">
-                <button class="btn btn-green" onclick="openInsertModal()">＋ Insertar</button>
-                <button class="btn btn-red"   onclick="deleteNode()">－ Eliminar</button>
-                <button class="btn btn-ghost-full" onclick="openModifyModal()">✏ Modificar nodo</button>
-                <button class="btn btn-red-full"   onclick="cancelFlight()">✈ Cancelar vuelo</button>
+            <div class="node-info-row">
+              <span>Origen</span><strong id="node-info-origin">—</strong>
             </div>
-        </div>
-
-        <!-- HISTORIAL -->
-        <div class="section">
-            <div class="section-label">Historial</div>
-            <div class="btn-grid">
-                <button class="btn btn-ghost" onclick="undoAction()">↩ Deshacer</button>
-                <button class="btn btn-ghost" onclick="clearTree()">🗑 Limpiar</button>
+            <div class="node-info-row">
+              <span>Destino</span><strong id="node-info-destiny">—</strong>
             </div>
-        </div>
-
-        <!-- JSON -->
-        <div class="section">
-            <div class="section-label">JSON</div>
-            <input type="file" id="json-file-input" accept="application/json"
-                style="display:none" onchange="handleJsonFileSelection(event)">
-            <div class="btn-grid">
-                <button class="btn btn-ghost" onclick="openJsonPicker()">📂 Cargar</button>
-                <button class="btn btn-ghost" onclick="exportTreeJson()">⤓ Exportar</button>
-                <button class="btn btn-demo-full" onclick="loadDemo()">🚀 Cargar demo</button>
+            <div class="node-info-row">
+              <span>Hora</span><strong id="node-info-time">—</strong>
             </div>
-        </div>
-
-        <!-- NODO SELECCIONADO -->
-        <div class="section">
-            <div class="section-label">Nodo seleccionado</div>
-            <div id="node-info-card" class="node-info-card">
-                <div id="node-info-empty" class="node-info-empty">Haz clic en un nodo para ver sus datos.</div>
-                <div id="node-info-content" style="display:none">
-                    <div class="node-info-row"><span>Código</span><strong id="node-info-code">—</strong></div>
-                    <div class="node-info-row"><span>Origen</span><strong id="node-info-origin">—</strong></div>
-                    <div class="node-info-row"><span>Destino</span><strong id="node-info-destiny">—</strong></div>
-                    <div class="node-info-row"><span>Hora</span><strong id="node-info-time">—</strong></div>
-                    <div class="node-info-row"><span>Pasajeros</span><strong id="node-info-passengers">—</strong></div>
-                    <div class="node-info-row"><span>Precio base</span><strong id="node-info-base-price">—</strong></div>
-                    <div class="node-info-row"><span>Precio final</span><strong id="node-info-final-price">—</strong></div>
-                    <div class="node-info-row"><span>Prioridad</span><strong id="node-info-priority">—</strong></div>
-                    <div class="node-info-row"><span>Promoción</span><strong id="node-info-promotion">—</strong></div>
-                    <div class="node-info-row"><span>Alerta</span><strong id="node-info-alert">—</strong></div>
-                    <div class="node-info-row"><span>Crítico</span><strong id="node-info-critical">—</strong></div>
-                </div>
+            <div class="node-info-row">
+              <span>Pasajeros</span><strong id="node-info-passengers">—</strong>
             </div>
-        </div>
-
-        <!-- VERSIONES -->
-        <div class="section">
-            <div class="section-label">Versiones</div>
-            <input type="text" id="version-name-input" placeholder="Nombre de la versión">
-            <button class="btn btn-green-full" onclick="saveVersion()">💾 Guardar versión</button>
-            <select id="version-select">
-                <option value="">-- Seleccionar versión --</option>
-            </select>
-            <button class="btn btn-ghost-full" onclick="restoreVersion()">↺ Restaurar versión</button>
-        </div>
-
-        <!-- SIMULACIÓN DE CONCURRENCIA -->
-        <div class="section">
-            <div class="section-label">Simulación de concurrencia</div>
-            <input type="text" id="queue-value-input" placeholder="Código a programar"
-                onkeydown="if(event.key==='Enter') scheduleInsertion()">
-            <input type="number" id="queue-flows-input" min="1" max="50" value="3" placeholder="N flujos paralelos">
-            <div class="btn-grid">
-                <button class="btn btn-green" onclick="scheduleInsertion()">＋ Programar</button>
-                <button class="btn btn-ghost" onclick="loadQueueState()">↻ Ver cola</button>
-                <button class="btn btn-demo-full" onclick="processInsertionQueue()">▶ Procesar cola</button>
+            <div class="node-info-row">
+              <span>Precio base</span
+              ><strong id="node-info-base-price">—</strong>
             </div>
-            <div id="queue-preview" class="queue-preview">Sin solicitudes pendientes.</div>
-        </div>
-
-        <!-- PENALIZACIÓN POR PROFUNDIDAD (Punto 6) -->
-        <div class="section">
-            <div class="section-label">Profundidad Crítica</div>
-            <input type="number" id="depth-limit-input" min="0" placeholder="Ej: 3 (0 = raíz)">
-            <button class="btn btn-ghost-full" onclick="setDepthLimit()">⚠ Aplicar límite</button>
-            <div id="depth-limit-info" style="display:none;font-size:11px;color:#8b949e;
-                 margin-top:4px;padding:4px 6px;border-radius:4px;background:#161b22;">
-                Límite activo: <span id="depth-limit-value">—</span>
-                — nodos críticos en <span style="color:#f85149;">rojo</span>
+            <div class="node-info-row">
+              <span>Precio final</span
+              ><strong id="node-info-final-price">—</strong>
             </div>
-        </div>
-
-        <!-- MODO ESTRÉS (Punto 5) -->
-        <div class="section">
-            <div class="section-label">Modo Estrés</div>
-            <!-- Indicator shown only while stress is active -->
-            <div id="stress-indicator" style="display:none;align-items:center;gap:6px;
-                 margin-bottom:8px;padding:6px 10px;border-radius:6px;
-                 background:#ff000018;border:1px solid #f8514966;font-size:12px;color:#f85149;">
-                <span>⚠</span><span>Balanceo automático suspendido</span>
+            <div class="node-info-row">
+              <span>Prioridad</span><strong id="node-info-priority">—</strong>
             </div>
-            <div class="btn-grid">
-                <button class="btn btn-red-full" id="btn-stress-toggle"
-                        onclick="toggleStressMode()">⚡ Activar modo estrés</button>
-                <button class="btn btn-green-full" id="btn-global-rebalance"
-                        onclick="globalRebalance()">⚖ Rebalanceo Global</button>
+            <div class="node-info-row">
+              <span>Promoción</span><strong id="node-info-promotion">—</strong>
             </div>
+            <div class="node-info-row">
+              <span>Alerta</span><strong id="node-info-alert">—</strong>
+            </div>
+            <div class="node-info-row">
+              <span>Crítico</span><strong id="node-info-critical">—</strong>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <!-- RECORRIDOS -->
-        <div class="section">
-            <div class="section-label">Recorridos</div>
-            <button class="trav-btn" id="t-preorder"  onclick="runTraversal('preorder')">Pre-Order (raíz–izq–der)</button>
-            <button class="trav-btn" id="t-inorder"   onclick="runTraversal('inorder')">In-Order (izq–raíz–der)</button>
-            <button class="trav-btn" id="t-postorder" onclick="runTraversal('postorder')">Post-Order (izq–der–raíz)</button>
-            <button class="trav-btn" id="t-level"     onclick="runTraversal('level')">Por Niveles (BFS)</button>
-        </div>
+      <!-- VERSIONES -->
+      <div class="section">
+        <div class="section-label">Versiones</div>
+        <input
+          type="text"
+          id="version-name-input"
+          placeholder="Nombre de la versión"
+        />
+        <button class="btn btn-green-full" onclick="saveVersion()">
+          💾 Guardar versión
+        </button>
+        <select id="version-select" aria-label="Seleccionar version">
+          <option value="">-- Seleccionar versión --</option>
+        </select>
+        <button class="btn btn-ghost-full" onclick="restoreVersion()">
+          ↺ Restaurar versión
+        </button>
+      </div>
 
-        <!-- ANALÍTICAS (visible solo cuando hay árbol) -->
-        <div id="stats" style="display:none">
-            <div class="section-label">Analíticas</div>
-            <div class="stat-row"><span>Nodos</span>        <span id="s-nodes">0</span></div>
-            <div class="stat-row"><span>Hojas</span>        <span id="s-leaves">0</span></div>
-            <div class="stat-row"><span>Altura</span>       <span id="s-height">0</span></div>
-            <div class="stat-row"><span>Balance raíz</span> <span id="s-bf">0</span></div>
-            <div class="stat-row"><span>Rotaciones (LL)</span> <span id="s-rot-ll">0</span></div>
-            <div class="stat-row"><span>Rotaciones (LR)</span> <span id="s-rot-lr">0</span></div>
-            <div class="stat-row"><span>Rotaciones (RR)</span> <span id="s-rot-rr">0</span></div>
-            <div class="stat-row"><span>Rotaciones (RL)</span> <span id="s-rot-rl">0</span></div>
-            <div class="stat-row"><span>Cancelaciones</span> <span id="s-cancel">0</span></div>
-            <button class="btn btn-ghost-full" onclick="resetAnalytics()">↻ Reset</button>
+      <!-- SIMULACIÓN DE CONCURRENCIA -->
+      <div class="section">
+        <div class="section-label">Simulación de concurrencia</div>
+        <input
+          type="text"
+          id="queue-value-input"
+          placeholder="Código a programar"
+          onkeydown="if (event.key === 'Enter') scheduleInsertion();"
+        />
+        <input
+          type="number"
+          id="queue-flows-input"
+          min="1"
+          max="50"
+          value="3"
+          placeholder="N flujos paralelos"
+        />
+        <div class="btn-grid">
+          <button class="btn btn-green" onclick="scheduleInsertion()">
+            ＋ Programar
+          </button>
+          <button class="btn btn-ghost" onclick="loadQueueState()">
+            ↻ Ver cola
+          </button>
+          <button class="btn btn-demo-full" onclick="processInsertionQueue()">
+            ▶ Procesar cola
+          </button>
         </div>
+        <div id="queue-preview" class="queue-preview">
+          Sin solicitudes pendientes.
+        </div>
+      </div>
+
+      <!-- PENALIZACIÓN POR PROFUNDIDAD (Punto 6) -->
+      <div class="section">
+        <div class="section-label">Profundidad Crítica</div>
+        <input
+          type="number"
+          id="depth-limit-input"
+          min="0"
+          placeholder="Ej: 3 (0 = raíz)"
+        />
+        <button class="btn btn-ghost-full" onclick="setDepthLimit()">
+          ⚠ Aplicar límite
+        </button>
+        <div
+          id="depth-limit-info"
+          style="
+            display: none;
+            font-size: 11px;
+            color: #8b949e;
+            margin-top: 4px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            background: #161b22;
+          "
+        >
+          Límite activo: <span id="depth-limit-value">—</span> — nodos críticos
+          en <span style="color: #f85149">rojo</span>
+        </div>
+      </div>
+
+      <!-- MODO ESTRÉS (Punto 5) -->
+      <div class="section">
+        <div class="section-label">Modo Estrés</div>
+        <!-- Indicator shown only while stress is active -->
+        <div
+          id="stress-indicator"
+          style="
+            display: none;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: #ff000018;
+            border: 1px solid #f8514966;
+            font-size: 12px;
+            color: #f85149;
+          "
+        >
+          <span>⚠</span><span>Balanceo automático suspendido</span>
+        </div>
+        <div class="btn-grid">
+          <button
+            class="btn btn-red-full"
+            id="btn-stress-toggle"
+            onclick="toggleStressMode()"
+          >
+            ⚡ Activar modo estrés
+          </button>
+          <button
+            class="btn btn-green-full"
+            id="btn-global-rebalance"
+            onclick="globalRebalance()"
+          >
+            ⚖ Rebalanceo Global
+          </button>
+        </div>
+      </div>
+
+      <!--Auditoria AVL (punto 7)-->
+      <div class="section">
+        <div class="section-label">Auditoría AVL</div>
+        <button
+          class="btn btn-ghost-full"
+          id="btn-avl-audit"
+          onclick="runAvlAudit()"
+        >
+          🔍 Verificar propiedades AVL
+        </button>
+      </div>
+
+      <!-- RECORRIDOS -->
+      <div class="section">
+        <div class="section-label">Recorridos</div>
+        <button
+          class="trav-btn"
+          id="t-preorder"
+          onclick="runTraversal('preorder')"
+        >
+          Pre-Order (raíz–izq–der)
+        </button>
+        <button
+          class="trav-btn"
+          id="t-inorder"
+          onclick="runTraversal('inorder')"
+        >
+          In-Order (izq–raíz–der)
+        </button>
+        <button
+          class="trav-btn"
+          id="t-postorder"
+          onclick="runTraversal('postorder')"
+        >
+          Post-Order (izq–der–raíz)
+        </button>
+        <button class="trav-btn" id="t-level" onclick="runTraversal('level')">
+          Por Niveles (BFS)
+        </button>
+      </div>
+
+      <!-- ANALÍTICAS (visible solo cuando hay árbol) -->
+      <div id="stats" style="display: none">
+        <div class="section-label">Analíticas</div>
+        <div class="stat-row">
+          <span>Nodos</span> <span id="s-nodes">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Hojas</span> <span id="s-leaves">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Altura</span> <span id="s-height">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Balance raíz</span> <span id="s-bf">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Rotaciones (LL)</span> <span id="s-rot-ll">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Rotaciones (LR)</span> <span id="s-rot-lr">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Rotaciones (RR)</span> <span id="s-rot-rr">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Rotaciones (RL)</span> <span id="s-rot-rl">0</span>
+        </div>
+        <div class="stat-row">
+          <span>Cancelaciones</span> <span id="s-cancel">0</span>
+        </div>
+        <button class="btn btn-ghost-full" onclick="resetAnalytics()">
+          ↻ Reset
+        </button>
+      </div>
     </div>
 
     <!-- ── MAIN ── -->
     <div id="main">
-        <div id="result-bar"></div>
-        <div id="canvas-wrap">
-            <div class="empty-msg" id="empty-msg">
-                <div class="icon">🌿</div>
-                <p>El árbol está vacío</p>
-                <p style="font-size:11px">Inserta un vuelo o carga la demo</p>
-            </div>
-            <svg id="tree-svg" style="display:none"></svg>
+      <div id="result-bar"></div>
+      <div id="canvas-wrap">
+        <div class="empty-msg" id="empty-msg">
+          <div class="icon">🌿</div>
+          <p>El árbol está vacío</p>
+          <p style="font-size: 11px">Inserta un vuelo o carga la demo</p>
         </div>
-        <div id="log-bar">
-            <div class="log-label">Log</div>
-            <div id="log-entries">
-                <div class="log-entry log-info">Sin actividad.</div>
-            </div>
+        <svg id="tree-svg" style="display: none"></svg>
+      </div>
+      <div id="log-bar">
+        <div class="log-label">Log</div>
+        <div id="log-entries">
+          <div class="log-entry log-info">Sin actividad.</div>
         </div>
+      </div>
     </div>
 
     <script src="js/api.js"></script>
     <script src="js/render.js"></script>
     <script src="js/main.js"></script>
-</body>
+  </body>
 </html>

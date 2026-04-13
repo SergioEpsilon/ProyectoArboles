@@ -18,6 +18,8 @@ from flask import Blueprint, jsonify, current_app
 from services.stress_service import StressService
 from services.tree_serializer import TreeSerializer
 
+from services.auditoria_avl import verificar_propiedad_avl
+
 stress_bp = Blueprint("stress", __name__, url_prefix="/stress")
 
 
@@ -121,3 +123,34 @@ def rebalance():
         ),
         200,
     )
+
+@stress_bp.route("/audit", methods=["GET"])
+def audit():
+    """
+    Run AVL only if stress mode is active.
+    """
+
+    if not StressService.instance().is_active():
+        return (
+            jsonify({
+                "error": "la auditoria AVL solo esta disponible en estres"
+            }),
+            403,
+        )
+    avl = _get_avl()
+    if avl is None or avl.root is None:
+        return (
+            jsonify({"error": "El arbol esta vacio"}),
+            400,
+        )
+    
+    resultado = verificar_propiedad_avl(avl)
+
+    return (
+        jsonify({
+            "message": "Auditoria AVL ejecutada correctamente",
+            "resultado": resultado
+        }),
+        200,
+    )
+

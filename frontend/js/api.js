@@ -92,3 +92,12 @@ async function apiDepthLimitGet() {
 async function apiDepthLimitSet(depth) {
     return readResponseOrThrow(await postJSON('/depth-limit/set', { depth }));
 }
+
+async function apiStressAudit() {
+    const res = await fetchJSON(`${API_BASE}/stress/audit`);
+    return readResponseOrThrow(res);
+}
+
+async function apiEconomicDelete() {
+    return readResponseOrThrow(await postJSON('/economic-delete', {}));
+}

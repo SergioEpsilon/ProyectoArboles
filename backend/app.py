@@ -15,6 +15,7 @@ from services.metrics_service import MetricsService
 from routes.stress_routes import stress_bp
 from routes.depth_routes import depth_bp
 
+from services.eliminacion_rentabilidad import cancelar_subrama_menor_rentabilidad
 
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
@@ -586,6 +587,37 @@ def process_pending_insertions():
             "remaining": queue.size(),
         }
     )
+
+@app.route("/economic-delete", methods=["POST"])
+def economic_delete():
+    global avl_tree
+
+    if avl_tree is None or avl_tree.root is None:
+        return (
+            jsonify({"error": "El arbol AVL esta vacio, no hay nada que eliminar."}),
+            400,
+        )
+    history_service.push("economic-delete-avl", _snap())
+    metrics_service.record_cancellation()
+
+    resultado = cancelar_subrama_menor_rentabilidad(avl_tree)
+
+    if not resultado.get("exito", False):
+        return (
+            jsonify({"error": resultado.get("mensaje", "Error desconocido.")}),
+            400,
+        )
+    
+    _apply_depth_penalties()
+    return jsonify({
+        "message": resultado["mensaje"],
+        "codigo_eliminado":resultado["codigo_eliminado"],
+        "rentabilidad": resultado["rentabilidad"],
+        "profundidad": resultado["profundidad"],
+        "nodos_eliminados": resultado["nodos_eliminados"],
+        "arbol": _to_dict(avl_tree)
+
+    })
 
 
 if __name__ == "__main__":

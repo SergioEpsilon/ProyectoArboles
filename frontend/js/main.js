@@ -753,6 +753,53 @@ async function toggleStressMode() {
     }
 }
 
+//------ Auditoria AVL (7)-------------------
+// ─── AVL AUDIT (Point 7) ────────────────────────────────────────────────────
+async function runAvlAudit() {
+    // This feature only works when stress mode is active
+    if (!stressMode) {
+        addLog('Activa el modo estrés antes de ejecutar la auditoría AVL.', 'info');
+        return;
+    }
+
+    try {
+        const data = await apiStressAudit();
+        const result = data.resultado;
+
+        // General result message
+        addLog(result.mensaje, result.valido ? 'ok' : 'err');
+
+        // Show inconsistencies if they exist
+        if (result.inconsistencias && result.inconsistencias.length > 0) {
+            result.inconsistencias.forEach((inc, index) => {
+                addLog(
+                    `#${index + 1} Nodo ${inc.codigo} | BF calc: ${inc.balance_calculado}, Alt calc: ${inc.altura_calculada}`,
+                    'err'
+                );
+            });
+        }
+
+    } catch (e) {
+        addLog(`Error en auditoría AVL: ${e.message}`, 'err');
+        alert(`Error en auditoría AVL: ${e.message}`);
+    }
+}
+
+// -------------ECONOMIC DELETE (Point 8)---------------
+async function deleteLowestProfitabilityNode() {
+    try {
+        const data = await apiEconomicDelete();
+        root = data.arbol;
+        addLog(
+            `${data.message} Nodo eliminado: ${data.codigo_eliminado} | Rentabilidad: ${data.rentabilidad} | Profundidad: ${data.profundidad} | Nodos eliminados: ${data.nodos_eliminados}`,
+            'ok'
+        );
+        render();
+    } catch (e) {
+        addLog(`Error en eliminación por rentabilidad: ${e.message}`, 'err');
+        alert(`Error en eliminación por rentabilidad: ${e.message}`);
+    }
+}
 /** Force a full AVL rebalance and show the rotation stats in the log. */
 async function globalRebalance() {
     if (stressMode) {
@@ -775,23 +822,30 @@ async function globalRebalance() {
 
 /** Sync button label, style and rebalance button visibility with current stressMode value. */
 function _applyStressModeUI() {
-    const btn        = document.getElementById('btn-stress-toggle');
-    const btnRebal   = document.getElementById('btn-global-rebalance');
-    const indicator  = document.getElementById('stress-indicator');
+    const btn       = document.getElementById('btn-stress-toggle');
+    const btnRebal  = document.getElementById('btn-global-rebalance');
+    const indicator = document.getElementById('stress-indicator');
+    const auditBtn  = document.getElementById('btn-avl-audit');
+
+    if (auditBtn) {
+        auditBtn.disabled = !stressMode;
+        auditBtn.style.opacity = stressMode ? '1' : '0.5';
+        auditBtn.style.cursor = stressMode ? 'pointer' : 'not-allowed';
+    }
 
     if (!btn || !btnRebal || !indicator) return;
 
     if (stressMode) {
-        btn.textContent      = '⚡ Desactivar modo estrés';
+        btn.textContent = '⚡ Desactivar modo estrés';
         btn.classList.add('stress-active');
         btn.classList.remove('stress-locked');
-        btnRebal.style.display  = 'none';
+        btnRebal.style.display = 'none';
         indicator.style.display = 'flex';
     } else {
-        btn.textContent      = stressUnlocked ? '⚡ Activar modo estrés' : '🔒 Modo estrés bloqueado';
+        btn.textContent = stressUnlocked ? '⚡ Activar modo estrés' : '🔒 Modo estrés bloqueado';
         btn.classList.remove('stress-active');
         btn.classList.toggle('stress-locked', !stressUnlocked);
-        btnRebal.style.display  = 'block';
+        btnRebal.style.display = 'block';
         indicator.style.display = 'none';
     }
 }
