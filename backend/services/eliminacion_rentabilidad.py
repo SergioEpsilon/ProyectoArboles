@@ -2,14 +2,14 @@ from models.node import Node
 
 
 # ------------------------------------------------------------
-# Calcula la rentabilidad de un nodo
+# Calculates the profitability of a node
 # ------------------------------------------------------------
-# Usa metadata del nodo:
-# rentabilidad = pasajeros * precioFinal - promoción + penalización
+# Uses node metadata:
+# profitability = passengers * finalPrice - promotion + penalty
 #
-# Nota:
-# - promoción es booleana → se convierte a valor fijo (50)
-# - si no hay precioFinal, usa precioBase
+# Note:
+# - promotion is boolean → converted to fixed value (50)
+# - if there is no finalPrice, uses basePrice
 def calcular_rentabilidad(nodo):
     metadata = nodo.getMetadata()
 
@@ -25,12 +25,12 @@ def calcular_rentabilidad(nodo):
 
 
 # ------------------------------------------------------------
-# Compara dos nodos y decide cuál es peor candidato
+# Compares two nodes and decides which is the worst candidate
 # ------------------------------------------------------------
-# Reglas:
-# 1. Menor rentabilidad
-# 2. Mayor profundidad
-# 3. Mayor código (value)
+# Rules:
+# 1. Lower profitability
+# 2. Greater depth
+# 3. Higher code (value)
 def es_mejor_candidato(actual, mejor):
     if mejor is None:
         return True
@@ -50,12 +50,12 @@ def es_mejor_candidato(actual, mejor):
 
 
 # ------------------------------------------------------------
-# Recorre el árbol y encuentra el peor nodo
+# Compares two nodes and decides which is the worst candidate
 # ------------------------------------------------------------
-# Guarda:
-# - nodo
-# - profundidad
-# - rentabilidad
+# Rules:
+# 1. Lower profitability
+# 2. Greater depth
+# 3. Higher code (value)
 def buscar_menor_rentabilidad(raiz):
     mejor = None
 
@@ -69,7 +69,7 @@ def buscar_menor_rentabilidad(raiz):
             "nodo": nodo,
             "padre": padre,
             "profundidad": profundidad,
-            "rentabilidad": calcular_rentabilidad(nodo)
+            "rentabilidad": calcular_rentabilidad(nodo),
         }
 
         if es_mejor_candidato(actual, mejor):
@@ -107,21 +107,14 @@ def recolectar_nodos_excluyendo_subrama(nodo_actual, nodo_excluir, lista):
     if nodo_actual == nodo_excluir:
         return
 
-    recolectar_nodos_excluyendo_subrama(
-        nodo_actual.getLeftChild(),
-        nodo_excluir,
-        lista
+    recolectar_nodos_excluyendo_subrama(nodo_actual.getLeftChild(), nodo_excluir, lista)
+
+    lista.append(
+        {"value": nodo_actual.getValue(), "metadata": nodo_actual.getMetadata()}
     )
 
-    lista.append({
-        "value": nodo_actual.getValue(),
-        "metadata": nodo_actual.getMetadata()
-    })
-
     recolectar_nodos_excluyendo_subrama(
-        nodo_actual.getRightChild(),
-        nodo_excluir,
-        lista
+        nodo_actual.getRightChild(), nodo_excluir, lista
     )
 
 
@@ -159,17 +152,13 @@ def cancelar_subrama_menor_rentabilidad(avl):
     candidato = buscar_menor_rentabilidad(avl.root)
 
     if candidato is None:
-        return {
-            "exito": False,
-            "mensaje": "El árbol está vacío."
-        }
+        return {"exito": False, "mensaje": "El árbol está vacío."}
 
     nodo_objetivo = candidato["nodo"]
     cantidad_eliminaciones = contar_nodos_subarbol(nodo_objetivo)
 
     datos_restantes = obtener_nodos_restantes_excluyendo_subrama(
-        avl.root,
-        nodo_objetivo
+        avl.root, nodo_objetivo
     )
 
     reconstruir_arbol_desde_lista(avl, datos_restantes)
@@ -180,5 +169,5 @@ def cancelar_subrama_menor_rentabilidad(avl):
         "codigo_eliminado": nodo_objetivo.getValue(),
         "rentabilidad": candidato["rentabilidad"],
         "profundidad": candidato["profundidad"],
-        "nodos_eliminados": cantidad_eliminaciones
+        "nodos_eliminados": cantidad_eliminaciones,
     }
